@@ -55,6 +55,7 @@ token_deploy_front:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
+  allow_failure: true
 
 
 token_deploy_back:
@@ -81,6 +82,7 @@ token_deploy_manual_front:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       when: manual
+  allow_failure: true
 
 
 token_deploy_manual_back:
@@ -93,3 +95,4 @@ token_deploy_manual_back:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       when: manual
+  allow_failure: true

@@ -34,6 +34,10 @@ paths:
                   type: string
                   description: Patient name
                   example: "Emmanuelli Johan"
+                age:
+                  type: integer
+                  description: Patient age
+                  example: 21
                 date:
                   type: string
                   format: date

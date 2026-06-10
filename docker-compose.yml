@@ -1,0 +1,15 @@
+services:
+  frontend:
+    image: registry.cri.epita.fr/lucil.finkelstein/pulmetrix/frontend:latest
+    container_name: pulmetrix_front
+    hostname: pulmetrix
+    ports:
+      - "80:80" # npm run dev runs on 8080 I believe ?
+
+  backend:
+    build: backend
+    image: registry.cri.epita.fr/lucil.finkelstein/pulmetrix/backend:latest
+    container_name: pulmetrix_api
+    hostname: pulmetrix_api
+    ports:
+      - "8000:8000" # FastApi runs on 8000 I believe ?

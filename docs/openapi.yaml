@@ -30,10 +30,10 @@ paths:
                   type: string
                   format: binary
                   description: DICOM image of a chest X-ray
-                name:
+                login:
                   type: string
-                  description: Patient name
-                  example: "Emmanuelli Johan"
+                  description: Patient login
+                  example: "johan.emmanuelli"
                 age:
                   type: integer
                   description: Patient age
@@ -65,13 +65,13 @@ paths:
       description: Returns a list of all stored analysis UUIDs.
       operationId: listAnalyses
       parameters:
-        - name: name
+        - name: login
           in: query
           required: false
-          description: Filter analyses by patient name.
+          description: Filter analyses by patient login.
           schema:
             type: string
-            example: "Emmanuelli"
+            example: "johan.emmanuelli"
       responses:
         '200':
           description: List of analyses.
@@ -101,19 +101,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /analysis/{name}:
+  /analysis/{login}:
     delete:
-      summary: Delete the analysis by name.
-      description: Deletes the analysis by name and all associated data (DICOM, masks, metrics, etc.).
-      operationId: deleteAnalysisByName
+      summary: Delete the analysis by patient login.
+      description: Deletes the analysis by login and all associated data (DICOM, masks, metrics, etc.).
+      operationId: deleteAnalysisByLogin
       parameters:
-        - name: name
+        - name: login
           in: path
           required: true
-          description: Patient Name.
+          description: Patient Login.
           schema:
             type: string
-            example: "Emmanuelli"
+            example: "johan.emmanuelli"
       responses:
         '204':
           description: Analysis successfully deleted.
@@ -348,13 +348,16 @@ components:
             properties:
               id:
                 $ref: '#/components/schemas/UUID'
-              name:
+              login:
                 type: string
-                example: "Emmanuelli Johan"
+                example: "johan.emmanuelli"
               date:
                 type: string
                 format: date
                 example: "2008-09-15"
+              age:
+                type: integer
+                example: 21
 
     UUID:
       type: string

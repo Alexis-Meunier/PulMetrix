@@ -14,7 +14,6 @@ export default function App() {
     leftLungArea: 0,
     rightLungArea: 0,
     symmetryIndex: 0,
-    diceCoefficient: 0,
     confidenceScore: 0,
   });
 
@@ -80,7 +79,6 @@ export default function App() {
         leftLungArea: 145.3 + Math.random() * 20,
         rightLungArea: 156.8 + Math.random() * 20,
         symmetryIndex: 92 + Math.random() * 6,
-        diceCoefficient: 0.89 + Math.random() * 0.08,
         confidenceScore: 88 + Math.random() * 10,
       });
 

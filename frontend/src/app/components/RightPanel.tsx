@@ -16,7 +16,6 @@ interface RightPanelProps {
     leftLungArea: number;
     rightLungArea: number;
     symmetryIndex: number;
-    diceCoefficient: number;
     confidenceScore: number;
   };
   isProcessing: boolean;
@@ -223,20 +222,6 @@ export function RightPanel({
                   : "⚠ Asymétrie détectée"}
               </p>
             </div>
-
-            {metrics.diceCoefficient > 0 && (
-              <div className="p-4 rounded-lg bg-card border border-border">
-                <p className="text-xs text-muted-foreground mb-3">Comparaison Annotation</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Coefficient de Dice</span>
-                  <span className="text-xl">{(metrics.diceCoefficient * 100).toFixed(1)}%</span>
-                </div>
-                <Progress value={metrics.diceCoefficient * 100} className="h-2 mt-2" />
-                <p className="text-xs text-muted-foreground mt-2">
-                  Précision de la segmentation
-                </p>
-              </div>
-            )}
 
             <div className="p-4 rounded-lg bg-card border border-border">
               <p className="text-xs text-muted-foreground mb-2">Volume Total</p>

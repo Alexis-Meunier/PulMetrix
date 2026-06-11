@@ -13,9 +13,9 @@ interface Patient {
 export function LeftSidebar({ onFileUpload }: { onFileUpload: (file: File) => void }) {
   const [isDragging, setIsDragging] = useState(false);
   const [recentPatients] = useState<Patient[]>([
-    { id: "1", name: "Patient A", date: "2026-05-12", study: "CXR PA" },
-    { id: "2", name: "Patient B", date: "2026-05-11", study: "CXR Lateral" },
-    { id: "3", name: "Patient C", date: "2026-05-10", study: "CXR PA" },
+    { id: "1", name: "Patient A", date: "2026-05-12", study: "Radio Frontale" },
+    { id: "2", name: "Patient B", date: "2026-05-11", study: "Radio Latérale" },
+    { id: "3", name: "Patient C", date: "2026-05-10", study: "Radio Frontale" },
   ]);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -48,7 +48,7 @@ export function LeftSidebar({ onFileUpload }: { onFileUpload: (file: File) => vo
       <div className="p-6 border-b border-sidebar-border">
         <h1 className="flex items-center gap-2 mb-1">
           <FileImage className="w-6 h-6 text-primary" />
-          PulmoMetric
+          PulMetrix
         </h1>
         <p className="text-sm text-muted-foreground">Analyse & Segmentation CXR</p>
       </div>

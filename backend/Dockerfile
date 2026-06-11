@@ -19,7 +19,7 @@ COPY . .
 RUN uv sync --no-editable --no-dev
 
 RUN set -eux; \
-    rm -f /app/pyproject.toml /app/uv.lock || true; \
+    rm -f /app/uv.lock || true; \
     rm -rf /root/.cache/pip /root/.cache/uv /tmp/pip-* || true; \
     find /app/.venv -type d -name "test"      -prune -exec rm -rf {} + || true; \
     find /app/.venv -type d -name "tests"     -prune -exec rm -rf {} + || true; \
@@ -40,5 +40,5 @@ ENV PYTHONPATH="${PYTHONPATH}:app"
 WORKDIR /app
 
 # TODO: Change path to fastapi file
-CMD ["fastapi", "run", "/app/api.py"]
+CMD ["fastapi", "run"]
 EXPOSE 8000

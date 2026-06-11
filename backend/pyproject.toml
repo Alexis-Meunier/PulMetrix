@@ -19,3 +19,6 @@ dev = [
     "ruff>=0.15.16",
     "ty>=0.0.46",
 ]
+
+[tool.fastapi]
+entrypoint = "src.main:app"

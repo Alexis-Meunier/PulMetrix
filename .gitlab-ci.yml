@@ -2,7 +2,7 @@ workflow:
   name: 'branch: $CI_COMMIT_BRANCH | Commit: $CI_COMMIT_TITLE'
 
 stages:
-  - Linter
+  - Code-Sanity
   - Docker
 
 variables:
@@ -18,13 +18,25 @@ default:
 # |            Always lint the code            | #
 # ============================================== #
 linter:
-  stage: Linter
+  stage: Code-Sanity
   before_script:
     - pip install uv
     - cd backend
   script:
     - uv sync
     - uv run ruff check
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+type-checker:
+  stage: Code-Sanity
+  before_script:
+    - pip install uv
+    - cd backend
+  script:
+    - uv sync
+    - uv run ty check
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

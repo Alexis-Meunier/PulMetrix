@@ -1,7 +1,7 @@
-import typing as ty
-from pathlib import Path
-
 import pydicom
+import typing as ty
+
+from pathlib import Path
 from pydicom.dataset import FileDataset
 
 

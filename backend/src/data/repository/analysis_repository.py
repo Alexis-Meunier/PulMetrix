@@ -42,17 +42,17 @@ class AnalysisRepository:
         results: List[Analysis] = list(self.session.exec(statement).all())
         return results
 
-    def get_by_patient_name(self, patient_name: str) -> list[Analysis]:
+    def get_by_patient_login(self, patient_login: str) -> list[Analysis]:
         """
         Get all the analyses associated to a patient's login
 
         Args:
-            patient_name (str): The patient's name
+            patient_login (str): The patient's login
 
         Returns:
             list[Analysis]: All database analyses of the patient
         """
-        statement = select(Analysis).where(Analysis.patient_name == patient_name)
+        statement = select(Analysis).where(Analysis.patient_login == patient_login)
         results: List[Analysis] = list(self.session.exec(statement).all())
         return results
 
@@ -89,17 +89,17 @@ class AnalysisRepository:
         self.session.delete(result)
         self.session.commit()
 
-    def delete_by_patient_name(self, patient_name: str) -> bool:
+    def delete_by_patient_login(self, patient_login: str) -> bool:
         """
         Delete all the analyses corresponding to the given patient's login
 
         Args:
-            patient_name (str): The patient's login
+            patient_login (str): The patient's login
 
         Returns:
             bool: True if the deletion was successful, False otherwise
         """
-        statement = select(Analysis).where(Analysis.patient_name == patient_name)
+        statement = select(Analysis).where(Analysis.patient_login == patient_login)
         results: List[Analysis] = list(self.session.exec(statement).all())
 
         if len(results) == 0:

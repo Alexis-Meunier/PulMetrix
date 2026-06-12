@@ -10,7 +10,7 @@ class Analysis(SQLModel, table=True):
     """
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    patient_name: str | None = None
+    patient_login: str | None = None
     patient_age: int | None = None
     timestamp: date | None = None
     path: str

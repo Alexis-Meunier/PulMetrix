@@ -1,8 +1,9 @@
 import uuid
 
 from datetime import date
+from pydantic import BaseModel
 
-class AnalysisResponse:
+class AnalysisResponse(BaseModel):
     """
     DTO class that represents an analysis
     """

@@ -13,7 +13,7 @@ def get_analyses() -> list[Analysis]:
     Gets all the analyses from the DB
 
     Returns:
-        list[AnalysisResponse]: Databases analyses simplified
+        list[Analysis]: Databases analyses
     """
     with Session(engine) as session:
         repo: AnalysisRepository = AnalysisRepository(session)
@@ -34,6 +34,25 @@ def get_original_image(id: uuid.UUID) -> Path:
         try:
             repo_analysis: Analysis = repo.get_by_id(id)
             path: Path = Path(repo_analysis.path) / "original-image.dcm"
+            return path
+        except NoResultFound:
+            return Path("error")
+
+def get_mask(id: uuid.UUID) -> Path:
+    """
+    Gets the computed mask
+
+    Args:
+        id(uuid.UUID): The id of the analysis
+
+    Returns:
+        str: The mask image
+    """
+    with Session(engine) as session:
+        repo: AnalysisRepository = AnalysisRepository(session)
+        try:
+            repo_analysis: Analysis = repo.get_by_id(id)
+            path: Path = Path(repo_analysis.path) / "mask.png"
             return path
         except NoResultFound:
             return Path("error")

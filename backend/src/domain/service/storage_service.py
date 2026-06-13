@@ -6,7 +6,8 @@ from pydicom.dataset import FileDataset
 
 
 def read_dicom_file(source: str | Path | ty.BinaryIO) -> FileDataset:
-    """Read a dicom file from String, Path or BinaryIO
+    """
+    Read a dicom file from String, Path or BinaryIO
 
     Args:
         source (dicom_source): The dicom file we want to read
@@ -21,7 +22,8 @@ def read_dicom_file(source: str | Path | ty.BinaryIO) -> FileDataset:
 
 
 def write_dicom_file(path: str | Path, ds: FileDataset) -> None:
-    """Write a dicom file
+    """
+    Write a dicom file
 
     Args:
         path (str | Path):  The path to write the dicom dataset to

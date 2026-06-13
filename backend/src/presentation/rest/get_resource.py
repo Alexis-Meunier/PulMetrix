@@ -1,4 +1,9 @@
+import uuid
+
 from fastapi import APIRouter
+from fastapi.responses import FileResponse
+from fastapi.exceptions import HTTPException
+from pathlib import Path
 
 from src.converter.analysis_converter import model_list_to_response_list
 from src.domain.service import get_service
@@ -12,8 +17,24 @@ async def get_analyses():
     Gets all the analyses from the DB
 
     Returns:
-        List with the id, age, login and date of each analysis
+        list[AnalysisResponse]: List with the id, age, login and date of each analysis
     """
     final_analyses: list[AnalysisResponse] = model_list_to_response_list(get_service.get_analyses())
     #return [{"id": analysis.id, "age": analysis.age, "login": analysis.login, "date": analysis.timestamp} for analysis in final_analyses]
     return final_analyses
+
+@router.get("/analysis/{id}/original-image")
+async def get_original_image(id: uuid.UUID):
+    """
+    Gets the original DICOM image
+
+    Args:
+        id(uuid.UUID): The id of the analysis
+
+    Returns:
+        FileResponse: The DICOM image
+    """
+    path: Path = get_service.get_original_image(id)
+    if "error" in str(path):
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    return FileResponse(path=path, media_type="application/dicom")

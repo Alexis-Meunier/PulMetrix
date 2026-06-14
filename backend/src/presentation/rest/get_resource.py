@@ -20,7 +20,6 @@ async def get_analyses():
         list[AnalysisResponse]: List with the id, age, login and date of each analysis
     """
     final_analyses: list[AnalysisResponse] = model_list_to_response_list(get_service.get_analyses())
-    #return [{"id": analysis.id, "age": analysis.age, "login": analysis.login, "date": analysis.timestamp} for analysis in final_analyses]
     return final_analyses
 
 @router.get("/analysis/{id}/original-image")
@@ -51,6 +50,22 @@ async def get_mask(id: uuid.UUID):
         str: The mask image
     """
     path: Path = get_service.get_mask(id)
+    if "error" in str(path):
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    return FileResponse(path=path, media_type="application/png")
+
+@router.get("/analysis/{id}/overlay")
+async def get_overlay(id: uuid.UUID):
+    """
+    Gets the computed mask on top of the original image
+
+    Args:
+        id(uuid.UUID): The id of the analysis
+
+    Returns:
+        str: The overlaid image
+    """
+    path: Path = get_service.get_overlay(id)
     if "error" in str(path):
         raise HTTPException(status_code=404, detail="Analysis not found")
     return FileResponse(path=path, media_type="application/png")

@@ -46,7 +46,7 @@ def get_mask(id: uuid.UUID) -> Path:
         id(uuid.UUID): The id of the analysis
 
     Returns:
-        str: The mask image
+        Path: The path to the mask image file or Path("error") if an error occurs
     """
     with Session(engine) as session:
         repo: AnalysisRepository = AnalysisRepository(session)
@@ -56,3 +56,23 @@ def get_mask(id: uuid.UUID) -> Path:
             return path
         except NoResultFound:
             return Path("error")
+
+def get_overlay(id: uuid.UUID) -> Path:
+    """
+    Gets the computed mask on top of the original image
+
+    Args:
+        id(uuid.UUID): The id of the analysis
+
+    Returns:
+        Path: The path to the overlaid image file or Path("error") if an error occurs
+    """
+    with Session(engine) as session:
+        repo: AnalysisRepository = AnalysisRepository(session)
+        try:
+            repo_analysis: Analysis = repo.get_by_id(id)
+            path: Path = Path(repo_analysis.path) / "overlay.png"
+            return path
+        except NoResultFound:
+            return Path("error")
+

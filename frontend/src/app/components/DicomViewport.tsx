@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { RotateCw, ZoomIn, ZoomOut, Move, FlipHorizontal, Layers } from "lucide-react";
 import { Button } from "./ui/button";
 import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
@@ -7,73 +7,65 @@ type ViewMode = "raw" | "mask" | "overlay";
 type Seed = { x: number; y: number; type: "left" | "right" };
 
 interface DicomViewportProps {
+  canvasRef: React.RefObject<HTMLCanvasElement>;
   imageData: string | null;
   maskData: string | null;
   mode: "auto" | "semi-manual" | "correction";
   onSeedPlaced?: (seeds: Seed[]) => void;
+  dicomImageData: ImageData | null;
 }
 
-export function DicomViewport({ imageData, maskData, mode, onSeedPlaced }: DicomViewportProps) {
+export function DicomViewport({ dicomImageData, canvasRef, imageData, maskData, mode, onSeedPlaced }: DicomViewportProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("raw");
   const [rotation, setRotation] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [seeds, setSeeds] = useState<Seed[]>([]);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
 
-  useEffect(() => {
+useEffect(() => {
+  if (!imageData) {
     drawCanvas();
-  }, [imageData, maskData, viewMode, rotation, zoom, pan, seeds]);
+  }
+}, [dicomImageData, maskData, viewMode, rotation, zoom, pan, seeds]);
 
   const drawCanvas = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.save();
 
-    ctx.translate(canvas.width / 2 + pan.x, canvas.height / 2 + pan.y);
-    ctx.rotate((rotation * Math.PI) / 180);
-    ctx.scale(zoom, zoom);
-    ctx.translate(-canvas.width / 2, -canvas.height / 2);
-
-    if (imageData && viewMode !== "mask") {
-      const img = new Image();
-      img.src = imageData;
+    if (dicomImageData && viewMode !== "mask") {
+      canvas.width = dicomImageData.width;
+      canvas.height = dicomImageData.height;
+      
+      ctx.save();
+      ctx.translate(canvas.width / 2 + pan.x, canvas.height / 2 + pan.y);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.scale(zoom, zoom);
+      ctx.translate(-canvas.width / 2, -canvas.height / 2);
       ctx.globalAlpha = viewMode === "overlay" ? 0.7 : 1;
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      ctx.putImageData(dicomImageData, 0, 0);
+      ctx.restore();
     }
 
     if (maskData && (viewMode === "mask" || viewMode === "overlay")) {
       const maskImg = new Image();
+      maskImg.onload = () => {
+        ctx.save();
+        ctx.translate(canvas.width / 2 + pan.x, canvas.height / 2 + pan.y);
+        ctx.rotate((rotation * Math.PI) / 180);
+        ctx.scale(zoom, zoom);
+        ctx.translate(-canvas.width / 2, -canvas.height / 2);
+        ctx.globalAlpha = viewMode === "overlay" ? 0.5 : 1;
+        ctx.drawImage(maskImg, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+      };
       maskImg.src = maskData;
-      ctx.globalAlpha = viewMode === "overlay" ? 0.5 : 1;
-      ctx.drawImage(maskImg, 0, 0, canvas.width, canvas.height);
     }
-
-    ctx.restore();
-
-    seeds.forEach((seed) => {
-      const color = seed.type === "left" ? "#3B82F6" : "#10F4B1";
-      ctx.fillStyle = color;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(seed.x, seed.y, 8, 0, 2 * Math.PI);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(seed.x, seed.y, 20, 0, 2 * Math.PI);
-      ctx.strokeStyle = color + "40";
-      ctx.lineWidth = 3;
-      ctx.stroke();
-    });
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -174,7 +166,7 @@ export function DicomViewport({ imageData, maskData, mode, onSeedPlaced }: Dicom
         </ToggleGroup>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-8 bg-[#000000]">
+      <div className="flex-1 flex items-center justify-center p-8 bg-[#000000] overflow-hidden">
         <canvas
           ref={canvasRef}
           width={800}
@@ -185,7 +177,12 @@ export function DicomViewport({ imageData, maskData, mode, onSeedPlaced }: Dicom
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
           className="border border-border/30 rounded-lg cursor-crosshair"
-          style={{ maxWidth: "100%", maxHeight: "100%" }}
+          style={{  maxWidth: "100%", 
+                    maxHeight: "100%",
+                    objectFit: "contain",
+                    width: "auto",
+                    height: "auto", 
+                  }}
         />
       </div>
 

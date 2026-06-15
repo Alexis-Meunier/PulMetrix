@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { LeftSidebar } from "./components/LeftSidebar";
 import { DicomViewport } from "./components/DicomViewport";
 import { RightPanel } from "./components/RightPanel";
-
+import dicomParser from "dicom-parser";
 type SegmentationMode = "auto" | "semi-manual" | "correction";
 
 export default function App() {
@@ -16,58 +16,60 @@ export default function App() {
     symmetryIndex: 0,
     confidenceScore: 0,
   });
+  const [dicomImageData, setDicomImageData] = useState<ImageData | null>(null);
 
-  const handleFileUpload = async (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setImageData(result);
+const canvasRef = useRef<HTMLCanvasElement>(null);
 
-      generateMockXRayImage();
-    };
-    reader.readAsDataURL(file);
-  };
 
-  const generateMockXRayImage = () => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 800;
-    canvas.height = 600;
-    const ctx = canvas.getContext("2d");
+const handleFileUpload = async (file: File) => {
+  const arrayBuffer = await file.arrayBuffer();
+  const byteArray = new Uint8Array(arrayBuffer);
+  
+  const dataSet = dicomParser.parseDicom(byteArray);
+  
+  const width = dataSet.uint16("x00280011")!;
+  const height = dataSet.uint16("x00280010")!;
+  const bitsAllocated = dataSet.uint16("x00280100") || 16;
+  
+  const windowCenter = dataSet.floatString("x00281050") || 40;
+  const windowWidth = dataSet.floatString("x00281051") || 400;
 
-    if (ctx) {
-      const gradient = ctx.createRadialGradient(400, 300, 50, 400, 300, 400);
-      gradient.addColorStop(0, "#1a1a1a");
-      gradient.addColorStop(0.5, "#2d2d2d");
-      gradient.addColorStop(1, "#0a0a0a");
+  const pixelDataElement = dataSet.elements.x7fe00010;
+  
+  const pixelData = bitsAllocated === 16
+    ? new Int16Array(byteArray.buffer, pixelDataElement.dataOffset, pixelDataElement.length / 2)
+    : new Uint8Array(byteArray.buffer, pixelDataElement.dataOffset, pixelDataElement.length);
 
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 800, 600);
+  const canvas = canvasRef.current;
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
 
-      ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
-      ctx.beginPath();
-      ctx.ellipse(300, 300, 120, 180, 0, 0, 2 * Math.PI);
-      ctx.fill();
+  canvas.width = width;
+  canvas.height = height;
 
-      ctx.beginPath();
-      ctx.ellipse(500, 300, 130, 190, 0, 0, 2 * Math.PI);
-      ctx.fill();
+  const imageDataObj = ctx.createImageData(width, height);
 
-      ctx.fillStyle = "rgba(100, 100, 100, 0.3)";
-      ctx.beginPath();
-      ctx.arc(400, 250, 60, 0, 2 * Math.PI);
-      ctx.fill();
+  const low = windowCenter - windowWidth / 2;
+  const high = windowCenter + windowWidth / 2;
 
-      for (let i = 0; i < 12; i++) {
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(400, 150 + i * 30, 350, 0.3, 2.84);
-        ctx.stroke();
-      }
+  for (let i = 0; i < width * height; i++) {
+    let val = pixelData[i];
 
-      setImageData(canvas.toDataURL());
-    }
-  };
+    if (val <= low) val = 0;
+    else if (val >= high) val = 255;
+    else val = ((val - low) / windowWidth) * 255;
+
+    imageDataObj.data[i * 4] = val;
+    imageDataObj.data[i * 4 + 1] = val;
+    imageDataObj.data[i * 4 + 2] = val;
+    imageDataObj.data[i * 4 + 3] = 255;
+  }
+
+  ctx.putImageData(imageDataObj, 0, 0);
+  setDicomImageData(imageDataObj);
+};
+
 
   const handleRunSegmentation = () => {
     setIsProcessing(true);
@@ -117,9 +119,12 @@ export default function App() {
 
   return (
     <div className="size-full flex bg-background text-foreground">
+      <div id="dwv-container" style={{display:"none"}} />
       <LeftSidebar onFileUpload={handleFileUpload} />
 
       <DicomViewport
+        dicomImageData={dicomImageData}
+        canvasRef={canvasRef}
         imageData={imageData}
         maskData={maskData}
         mode={mode}

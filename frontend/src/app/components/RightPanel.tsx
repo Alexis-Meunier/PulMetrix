@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
 import { Slider } from "./ui/slider";
 import { Progress } from "./ui/progress";
-import { Paintbrush, Eraser, Wand2, Play, Check } from "lucide-react";
+import { Paintbrush, Eraser, Wand2, Play, Check, User } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
 
 type SegmentationMode = "auto" | "semi-manual" | "correction";
@@ -19,6 +19,7 @@ interface RightPanelProps {
     confidenceScore: number;
   };
   isProcessing: boolean;
+  onOpenPatientInfo: () => void;
 }
 
 export function RightPanel({
@@ -26,7 +27,8 @@ export function RightPanel({
   onModeChange,
   onRunSegmentation,
   metrics,
-  isProcessing
+  isProcessing,
+  onOpenPatientInfo,
 }: RightPanelProps) {
   const [brushSize, setBrushSize] = useState([10]);
   const [maskOpacity, setMaskOpacity] = useState([50]);
@@ -34,8 +36,12 @@ export function RightPanel({
 
   return (
     <div className="w-96 bg-sidebar border-l border-sidebar-border flex flex-col h-full">
-      <div className="p-4 border-b border-sidebar-border">
+      <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
         <h2>Contrôle & Analyse</h2>
+        <Button variant="outline" size="sm" onClick={onOpenPatientInfo}>
+          <User className="w-4 h-4 mr-2" />
+          Patient
+        </Button>
       </div>
 
       <Tabs defaultValue="segmentation" className="flex-1 flex flex-col">

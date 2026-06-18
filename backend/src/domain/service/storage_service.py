@@ -1,11 +1,11 @@
 import pydicom
-import typing as ty
+import base64
+import io
 
 from pathlib import Path
 from pydicom.dataset import FileDataset
 
-
-def read_dicom_file(source: str | Path | ty.BinaryIO) -> FileDataset:
+def read_dicom_file(image_base64: str) -> FileDataset :
     """
     Read a dicom file from String, Path or BinaryIO
 
@@ -18,8 +18,11 @@ def read_dicom_file(source: str | Path | ty.BinaryIO) -> FileDataset:
     Raises:
         InvalidDicomError: If the file is not a valid DICOM.
     """
-    return pydicom.dcmread(source)
-
+    if "," in image_base64:
+        image_base64 = image_base64.split(",")[1]
+    
+    file_bytes = base64.b64decode(image_base64)
+    return pydicom.dcmread(io.BytesIO(file_bytes))
 
 def write_dicom_file(path: str | Path, ds: FileDataset) -> None:
     """

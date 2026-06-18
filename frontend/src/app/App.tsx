@@ -8,6 +8,10 @@ import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import dicomParser from "dicom-parser";
 type SegmentationMode = "auto" | "semi-manual" | "correction";
+type Seed = { x: number; y: number; type: "left" | "right" };
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8000";
+
 
 export default function App() {
   const [mode, setMode] = useState<SegmentationMode>("auto");
@@ -26,6 +30,8 @@ export default function App() {
   const [patientAge, setPatientAge] = useState("");
   const [patientDate, setPatientDate] = useState("");
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
+  const [seeds, setSeeds] = useState<Seed[]>([]);
+  const [message, setMessage] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -53,6 +59,7 @@ export default function App() {
   });
 
   const handleFileUpload = async (file: File) => {
+    console.log(file);
     const arrayBuffer = await file.arrayBuffer();
     const byteArray = new Uint8Array(arrayBuffer);
     const base64 = await fileToBase64(file);
@@ -103,12 +110,51 @@ export default function App() {
     ctx.putImageData(imageDataObj, 0, 0);
     setDicomImageData(imageDataObj);
   };
+  
+  const handleRunSegmentation = async () => {
+    if (!dicomBase64) {
+      console.warn("Aucun DICOM chargé pour l'analyse");
+      return;
+    }
 
+    let timestampIso = null;
+    if (patientDate)
+      timestampIso = parseDateFrToIso(patientDate);
 
-  const handleRunSegmentation = () => {
     setIsProcessing(true);
 
-    setTimeout(() => {
+    console.log("Envoi des données au backend pour la segmentation...");
+    try {
+      if (mode === "semi-manual" && seeds.length < 2) {
+          setMessage(`Vous avez moins de 2 seeds placés. Ajoutez en ${2 - seeds.length} pour lancer la segmentation`);
+          return;
+      }
+
+      const payload = {
+        image: dicomBase64,
+        login: patientName,
+        age: Number(patientAge) || null,
+        timestamp: timestampIso,
+        seeds: seeds.map((seed) => ({ x: Math.round(seed.x), y: Math.round(seed.y) })),
+      };
+
+      const response = await fetch(`${BACKEND_URL}/compute`, {
+        method: "POST",
+        mode: "cors",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Échec backend ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("Résultat compute :", result);
+  
+
       generateMockMask();
 
       setMetrics({
@@ -117,9 +163,11 @@ export default function App() {
         symmetryIndex: 92 + Math.random() * 6,
         confidenceScore: 88 + Math.random() * 10,
       });
-
+    } catch (error) {
+      console.error("Erreur de segmentation :", error);
+    } finally {
       setIsProcessing(false);
-    }, 2000);
+    }
   };
 
   const handlePatientInfoSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -222,7 +270,8 @@ export default function App() {
         imageData={imageData}
         maskData={maskData}
         mode={mode}
-        onSeedPlaced={() => {}}
+        onSeedPlaced={setSeeds}
+        message={message}
       />
 
       <RightPanel

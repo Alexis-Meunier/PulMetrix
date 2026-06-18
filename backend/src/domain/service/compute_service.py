@@ -4,12 +4,17 @@ from datetime import date
 from pathlib import Path
 from sqlmodel import Session
 
+import typing as ty
+
 from src.data.model.analysis_model import Analysis
 from src.data.repository.analysis_repository import AnalysisRepository
 from src.db import engine
 from src.utils.point import Point
+from src.domain.service import storage_service
+from src.domain.service import tvac_service
+from src.domain.service import semi_manual_detection_service
 
-def compute(image: str, login: str | None, age: int | None, date: date | None , seeds: list[Point] | None) -> uuid.UUID:
+def compute(image: str, login: str | None, age: int | None, date: date | None , seeds: ty.List[Point] | None) -> uuid.UUID:
     """
     Computes the lung segmentation, saves the results and returns the analysis id
 
@@ -24,13 +29,15 @@ def compute(image: str, login: str | None, age: int | None, date: date | None , 
         uuid.UUID: The id of the analysis
     """
     with Session(engine) as session:
+        ds = storage_service.read_dicom_file(image)
         repo: AnalysisRepository = AnalysisRepository(session)
-        if seeds is None:
-            #automatic_compute(image)
-            print("auto mode")
+        mask = None
+        if seeds is None or len(seeds) == 0:
+            mask = tvac_service.tvac(ds)
+            print("auto mode, begin of mask " + mask[0])
         else:
-            #semi_manual_compute(image, x1, y1, x2, y2)
-            print(f"semi manual mode for {len(seeds)} points")
+            mask = semi_manual_detection_service.region_growing(seeds, ds)
+            print(f"semi manual mode for {len(seeds)} points, begin of mask " + mask[0])
         id: uuid.UUID = uuid.uuid4()
         path: Path = Path(str(id))
         analysis: Analysis = Analysis(id=id, patient_login=login, patient_age=age, timestamp=date, path=str(path), area_left_lung=150, area_right_lung=160, asymetric_score=0.9375)

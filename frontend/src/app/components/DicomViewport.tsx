@@ -13,9 +13,10 @@ interface DicomViewportProps {
   mode: "auto" | "semi-manual" | "correction";
   onSeedPlaced?: (seeds: Seed[]) => void;
   dicomImageData: ImageData | null;
+  message?: string | null;
 }
 
-export function DicomViewport({ dicomImageData, canvasRef, imageData, maskData, mode, onSeedPlaced }: DicomViewportProps) {
+export function DicomViewport({ dicomImageData, canvasRef, imageData, maskData, mode, onSeedPlaced, message: propsMessage }: DicomViewportProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("raw");
   const [rotation, setRotation] = useState(0);
   const [zoom, setZoom] = useState(1);
@@ -23,11 +24,12 @@ export function DicomViewport({ dicomImageData, canvasRef, imageData, maskData, 
   const [seeds, setSeeds] = useState<Seed[]>([]);
   const [isPanning, setIsPanning] = useState(false);
   const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
+  const [localMessage, setLocalMessage] = useState<string | null>(null);
+
+  const message = propsMessage ?? localMessage;
 
 useEffect(() => {
-  if (!imageData) {
     drawCanvas();
-  }
 }, [dicomImageData, maskData, viewMode, rotation, zoom, pan, seeds]);
 
   const drawCanvas = () => {
@@ -41,46 +43,61 @@ useEffect(() => {
     if (dicomImageData && viewMode !== "mask") {
       canvas.width = dicomImageData.width;
       canvas.height = dicomImageData.height;
-      
-      ctx.save();
-      ctx.translate(canvas.width / 2 + pan.x, canvas.height / 2 + pan.y);
-      ctx.rotate((rotation * Math.PI) / 180);
-      ctx.scale(zoom, zoom);
-      ctx.translate(-canvas.width / 2, -canvas.height / 2);
-      ctx.globalAlpha = viewMode === "overlay" ? 0.7 : 1;
       ctx.putImageData(dicomImageData, 0, 0);
-      ctx.restore();
     }
 
     if (maskData && (viewMode === "mask" || viewMode === "overlay")) {
       const maskImg = new Image();
       maskImg.onload = () => {
-        ctx.save();
-        ctx.translate(canvas.width / 2 + pan.x, canvas.height / 2 + pan.y);
-        ctx.rotate((rotation * Math.PI) / 180);
-        ctx.scale(zoom, zoom);
-        ctx.translate(-canvas.width / 2, -canvas.height / 2);
         ctx.globalAlpha = viewMode === "overlay" ? 0.5 : 1;
         ctx.drawImage(maskImg, 0, 0, canvas.width, canvas.height);
-        ctx.restore();
+        ctx.globalAlpha = 1;
       };
       maskImg.src = maskData;
     }
+
+    if (viewMode === "raw" && mode === "semi-manual") {
+      drawSeeds(ctx);
+    }
   };
+
+  const drawSeeds = (ctx: CanvasRenderingContext2D) => {
+    seeds.forEach((seed) => {
+      const color = seed.type === "left" ? "#3B82F6" : "#10F4B1";
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = color;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(seed.x, seed.y, 38, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(seed.x, seed.y, 70, 0, 2 * Math.PI);
+      ctx.strokeStyle = color + "80";
+      ctx.lineWidth = 8;
+      ctx.stroke();
+    });
+  };
+
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (mode !== "semi-manual") return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
 
     const seedType = seeds.length % 2 === 0 ? "left" : "right";
-    const newSeeds = [...seeds, { x, y, type: seedType }];
+    const newSeeds: Seed[] = [...seeds, { x, y, type: seedType }];
     setSeeds(newSeeds);
+    setLocalMessage(null);
     onSeedPlaced?.(newSeeds);
   };
 
@@ -188,8 +205,7 @@ useEffect(() => {
 
       {mode === "semi-manual" && (
         <div className="p-3 border-t border-border bg-card/50 text-sm text-center">
-          {seeds.length === 0 && "Cliquez pour placer le seed GAUCHE (bleu)"}
-          {seeds.length === 1 && "Cliquez pour placer le seed DROIT (vert)"}
+          {message && seeds.length < 2 && <p className="text-red-500 mb-1">{message}</p>}
           {seeds.length >= 2 && `${seeds.length} seeds placés - Prêt pour segmentation`}
         </div>
       )}

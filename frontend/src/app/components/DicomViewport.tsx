@@ -14,9 +14,10 @@ interface DicomViewportProps {
   onSeedPlaced?: (seeds: Seed[]) => void;
   dicomImageData: ImageData | null;
   message?: string | null;
+  overlayData: string | null;
 }
 
-export function DicomViewport({ dicomImageData, canvasRef, imageData, maskData, mode, onSeedPlaced, message: propsMessage }: DicomViewportProps) {
+export function DicomViewport({ dicomImageData, canvasRef, imageData, maskData, overlayData, mode, onSeedPlaced, message: propsMessage }: DicomViewportProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("raw");
   const [rotation, setRotation] = useState(0);
   const [zoom, setZoom] = useState(1);
@@ -30,7 +31,7 @@ export function DicomViewport({ dicomImageData, canvasRef, imageData, maskData, 
 
 useEffect(() => {
     drawCanvas();
-}, [dicomImageData, maskData, viewMode, rotation, zoom, pan, seeds]);
+}, [dicomImageData, maskData, overlayData, viewMode, rotation, zoom, pan, seeds]);
 
   const drawCanvas = () => {
     const canvas = canvasRef.current;
@@ -46,14 +47,24 @@ useEffect(() => {
       ctx.putImageData(dicomImageData, 0, 0);
     }
 
-    if (maskData && (viewMode === "mask" || viewMode === "overlay")) {
+    if (maskData && viewMode === "mask") {
       const maskImg = new Image();
       maskImg.onload = () => {
-        ctx.globalAlpha = viewMode === "overlay" ? 0.5 : 1;
+        canvas.width = maskImg.width;
+        canvas.height = maskImg.height;
         ctx.drawImage(maskImg, 0, 0, canvas.width, canvas.height);
-        ctx.globalAlpha = 1;
       };
       maskImg.src = maskData;
+    }
+
+    if (overlayData && viewMode === "overlay") {
+      const overlayImg = new Image();
+      overlayImg.onload = () => {
+        canvas.width = overlayImg.width;
+        canvas.height = overlayImg.height;
+        ctx.drawImage(overlayImg, 0, 0, canvas.width, canvas.height);
+      };
+      overlayImg.src = overlayData;
     }
 
     if (viewMode === "raw" && mode === "semi-manual") {

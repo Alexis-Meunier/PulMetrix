@@ -108,7 +108,7 @@ export function RightPanel({
             <div className="space-y-4">
               <div className="p-4 rounded-lg bg-card border border-border">
                 <p className="text-xs text-muted-foreground mb-2">Instructions</p>
-                <p className="text-xs text-muted-foreground mb-2">Pour avoir des résultats satisfaisants, il est conseiller de placer les points sur une côte.</p>
+                <p className="text-xs text-muted-foreground mb-2">Pour avoir des résultats satisfaisants, il est conseiller de ne pas placer les points sur des côtes.</p>
                 <ol className="text-sm space-y-1 list-decimal list-inside">
                   <li>Placer au moins un point dans le <span className="text-[#3B82F6]">poumon droit du patient</span></li>
                   <li>Placer au moins un point dans le <span className="text-[#10F4B1]">poumon gauche du patient</span></li>

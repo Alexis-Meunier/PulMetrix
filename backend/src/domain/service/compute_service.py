@@ -16,7 +16,7 @@ from src.domain.service import semi_manual_detection_service
 
 def compute(image: str, login: str | None, age: int | None, date: date | None , seeds: ty.List[Point] | None) -> uuid.UUID:
     """
-    Computes the lung segmentation, saves the results and returns the analysis id
+    Computes the lung segmentation, saves the results (original image,mask and overlay) and returns the analysis id
 
     Args:
         image(binary str): DICOM image of a chest X-ray
@@ -34,12 +34,18 @@ def compute(image: str, login: str | None, age: int | None, date: date | None , 
         mask = None
         if seeds is None or len(seeds) == 0:
             mask = tvac_service.tvac(ds)
-            print("auto mode, begin of mask " + mask[0])
+            print("auto mode, begin of mask")
+            print(mask[0])
         else:
             mask = semi_manual_detection_service.region_growing(seeds, ds)
-            print(f"semi manual mode for {len(seeds)} points, begin of mask " + mask[0])
+            print(f"semi manual mode for {len(seeds)} points, begin of mask")
+            print(mask[0])
         id: uuid.UUID = uuid.uuid4()
         path: Path = Path(str(id))
         analysis: Analysis = Analysis(id=id, patient_login=login, patient_age=age, timestamp=date, path=str(path), area_left_lung=150, area_right_lung=160, asymetric_score=0.9375)
         analysis = repo.create(analysis)
+        analysis_dir = f"data/{analysis.id}/"
+        storage_service.write_dicom_file(analysis_dir + "original-image.dcm", ds)
+        storage_service.save_mask_as_image(mask, analysis_dir + "mask.png")
+        storage_service.save_overlay_as_image(ds, mask, analysis_dir + "overlay.png")
         return analysis.id

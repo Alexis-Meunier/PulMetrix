@@ -33,7 +33,7 @@ def get_original_image(id: uuid.UUID) -> Path:
         repo: AnalysisRepository = AnalysisRepository(session)
         try:
             repo_analysis: Analysis = repo.get_by_id(id)
-            path: Path = Path(repo_analysis.path) / "original-image.dcm"
+            path: Path = Path("data/" + repo_analysis.path) / "original-image.dcm"
             return path
         except NoResultFound:
             return Path("error")
@@ -52,7 +52,7 @@ def get_mask(id: uuid.UUID) -> Path:
         repo: AnalysisRepository = AnalysisRepository(session)
         try:
             repo_analysis: Analysis = repo.get_by_id(id)
-            path: Path = Path(repo_analysis.path) / "mask.png"
+            path: Path = Path("data/" + repo_analysis.path) / "mask.png"
             return path
         except NoResultFound:
             return Path("error")
@@ -71,7 +71,7 @@ def get_overlay(id: uuid.UUID) -> Path:
         repo: AnalysisRepository = AnalysisRepository(session)
         try:
             repo_analysis: Analysis = repo.get_by_id(id)
-            path: Path = Path(repo_analysis.path) / "overlay.png"
+            path: Path = Path("data/" + repo_analysis.path) / "overlay.png"
             return path
         except NoResultFound:
             return Path("error")

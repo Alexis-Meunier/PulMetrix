@@ -32,6 +32,7 @@ export default function App() {
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
   const [seeds, setSeeds] = useState<Seed[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+  const [overlayData, setOverlayData] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -59,7 +60,6 @@ export default function App() {
   });
 
   const handleFileUpload = async (file: File) => {
-    console.log(file);
     const arrayBuffer = await file.arrayBuffer();
     const byteArray = new Uint8Array(arrayBuffer);
     const base64 = await fileToBase64(file);
@@ -110,7 +110,23 @@ export default function App() {
     ctx.putImageData(imageDataObj, 0, 0);
     setDicomImageData(imageDataObj);
   };
-  
+
+  const handleFetch = async (url: string, payload: any, method: string) => {
+    try {
+      return fetch(url, {
+        method: method,
+        mode: "cors",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: payload ? JSON.stringify(payload) : null,
+      });
+    } catch (error) {
+      console.error("Erreur lors de la requête fetch:", error);
+      return null;
+    }
+  };
+
   const handleRunSegmentation = async () => {
     if (!dicomBase64) {
       console.warn("Aucun DICOM chargé pour l'analyse");
@@ -138,24 +154,36 @@ export default function App() {
         seeds: seeds.map((seed) => ({ x: Math.round(seed.x), y: Math.round(seed.y) })),
       };
 
-      const response = await fetch(`${BACKEND_URL}/compute`, {
-        method: "POST",
-        mode: "cors",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      const response_id = await handleFetch(`${BACKEND_URL}/compute`, payload, "POST");
 
-      if (!response.ok) {
-        throw new Error(`Échec backend ${response.status}`);
+      if (!response_id || !response_id.ok) {
+        throw new Error("Échec backend pour la segmentation");
       }
 
-      const result = await response.json();
-      console.log("Résultat compute :", result);
-  
+      const result_id = await response_id.json();
+      console.log("Résultat compute :", result_id);
 
-      generateMockMask();
+      const response_mask = await handleFetch(`${BACKEND_URL}/analysis/${result_id}/mask`, null, "GET");
+
+      if (!response_mask || !response_mask.ok) {
+        throw new Error("Échec backend pour le masque");
+      }
+
+      const maskBlob = await response_mask.blob();
+      const maskUrl = URL.createObjectURL(maskBlob);
+      setMaskData(maskUrl);
+      console.log("Résultat compute :", maskBlob);
+
+      const response_overlay = await handleFetch(`${BACKEND_URL}/analysis/${result_id}/overlay`, null, "GET");
+
+      if (!response_overlay || !response_overlay.ok) {
+        throw new Error("Échec backend pour l'overlay");
+      }
+
+      const overlayBlob = await response_overlay.blob();
+      const overlayUrl = URL.createObjectURL(overlayBlob);
+      setOverlayData(overlayUrl);
+      console.log("Résultat compute :", overlayBlob);
 
       setMetrics({
         leftLungArea: 145.3 + Math.random() * 20,
@@ -179,35 +207,6 @@ export default function App() {
     }
 
     setIsInfoDialogOpen(false);
-  };
-
-  const generateMockMask = () => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 800;
-    canvas.height = 600;
-    const ctx = canvas.getContext("2d");
-
-    if (ctx) {
-      ctx.fillStyle = "rgba(59, 130, 246, 0.4)";
-      ctx.beginPath();
-      ctx.ellipse(300, 300, 120, 180, 0, 0, 2 * Math.PI);
-      ctx.fill();
-
-      ctx.strokeStyle = "#3B82F6";
-      ctx.lineWidth = 3;
-      ctx.stroke();
-
-      ctx.fillStyle = "rgba(16, 244, 177, 0.4)";
-      ctx.beginPath();
-      ctx.ellipse(500, 300, 130, 190, 0, 0, 2 * Math.PI);
-      ctx.fill();
-
-      ctx.strokeStyle = "#10F4B1";
-      ctx.lineWidth = 3;
-      ctx.stroke();
-
-      setMaskData(canvas.toDataURL());
-    }
   };
 
   return (
@@ -272,6 +271,7 @@ export default function App() {
         mode={mode}
         onSeedPlaced={setSeeds}
         message={message}
+        overlayData={overlayData}
       />
 
       <RightPanel

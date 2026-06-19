@@ -11,7 +11,12 @@ def model_to_response(analysis: Analysis) -> AnalysisResponse:
     Returns:
         AnalysisResponse: Analysis with only id, age, login and timestamp
     """
-    return AnalysisResponse(analysis.patient_age, analysis.id, analysis.patient_login, analysis.timestamp)
+    return AnalysisResponse(
+        id=analysis.id,
+        age=analysis.patient_age,
+        login=analysis.patient_login,
+        timestamp=analysis.timestamp,
+    )
 
 def model_list_to_response_list(analyses: list[Analysis]) -> list[AnalysisResponse]:
     """

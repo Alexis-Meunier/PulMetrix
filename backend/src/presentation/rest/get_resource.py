@@ -6,6 +6,8 @@ from fastapi.exceptions import HTTPException
 from pathlib import Path
 
 from src.converter.analysis_converter import model_list_to_response_list
+from src.converter.metrics_converter import entity_to_response
+from src.domain.entity.metrics_entity import MetricsEntity
 from src.domain.service import get_service
 from src.presentation.api.response.analysis_response import AnalysisResponse
 
@@ -69,3 +71,19 @@ async def get_overlay(id: uuid.UUID):
     if "error" in str(path):
         raise HTTPException(status_code=404, detail="Analysis not found")
     return FileResponse(path=path, media_type="application/png")
+
+@router.get("/analysis/{id}/metrics")
+async def get_metrics(id: uuid.UUID):
+    """
+    Gets the metrics of the specified analysis
+
+    Args:
+        id(uuid.UUID): The id of the analysis
+
+    Returns:
+        MetricsResponse: The metrics of the analysis
+    """
+    metrics_entity: MetricsEntity = get_service.get_metrics(id)
+    if metrics_entity.area_left_lung == -1:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    return entity_to_response(metrics_entity)

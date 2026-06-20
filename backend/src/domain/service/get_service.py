@@ -4,9 +4,11 @@ from pathlib import Path
 from sqlalchemy.exc import NoResultFound
 from sqlmodel import Session
 
+from src.converter.metrics_converter import analysis_model_to_metrics_entity
 from src.data.model.analysis_model import Analysis
 from src.data.repository.analysis_repository import AnalysisRepository
 from src.db import engine
+from src.domain.entity.metrics_entity import MetricsEntity
 
 def get_analyses() -> list[Analysis]:
     """
@@ -76,3 +78,21 @@ def get_overlay(id: uuid.UUID) -> Path:
         except NoResultFound:
             return Path("error")
 
+def get_metrics(id: uuid.UUID) -> MetricsEntity:
+    """
+    Gets the metrics of the specified analysis
+
+    Args:
+        id(uuid.UUID): The id of the analysis
+
+    Returns:
+        MetricsEntity: The metrics of the analysis
+    """
+    with Session(engine) as session:
+        repo: AnalysisRepository = AnalysisRepository(session)
+        try:
+            repo_analysis: Analysis = repo.get_by_id(id)
+            metrics: MetricsEntity = analysis_model_to_metrics_entity(repo_analysis)
+            return metrics
+        except NoResultFound:
+            return MetricsEntity(-1, -1, -1, True)

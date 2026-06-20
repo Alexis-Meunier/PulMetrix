@@ -1,3 +1,4 @@
+from src.data.model.analysis_model import Analysis
 from src.domain.entity.metrics_entity import MetricsEntity
 from src.presentation.api.response.metrics_response import MetricsResponse
 
@@ -36,3 +37,20 @@ def response_to_entity(metrics: MetricsResponse) -> MetricsEntity:
         metrics.is_asymmetry_critical,
     )
     return metrics_response
+
+def analysis_model_to_metrics_entity(analysis: Analysis):
+    """
+    Converts an Analysis to a MetricsEntity
+
+    Args:
+        analysis (Analysis): The analysis to be converted
+
+    Returns:
+        MetricsEntity: The resulting entity
+    """
+    metrics_entity = MetricsEntity(
+        analysis.area_left_lung,
+        analysis.area_right_lung,
+        analysis.asymetric_score
+    )
+    return metrics_entity

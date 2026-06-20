@@ -1,10 +1,10 @@
+import typing as ty
 import uuid
 
 from datetime import date
 from pathlib import Path
+from pydicom import errors
 from sqlmodel import Session
-
-import typing as ty
 
 from src.data.model.analysis_model import Analysis
 from src.data.repository.analysis_repository import AnalysisRepository
@@ -29,7 +29,10 @@ def compute(image: str, login: str | None, age: int | None, date: date | None , 
         uuid.UUID: The id of the analysis
     """
     with Session(engine) as session:
-        ds = storage_service.read_dicom_file(image)
+        try:
+            ds = storage_service.read_dicom_image(image)
+        except errors.InvalidDicomError:
+            raise ValueError()
         repo: AnalysisRepository = AnalysisRepository(session)
         mask = None
         if seeds is None or len(seeds) == 0:
@@ -44,8 +47,8 @@ def compute(image: str, login: str | None, age: int | None, date: date | None , 
         path: Path = Path(str(id))
         analysis: Analysis = Analysis(id=id, patient_login=login, patient_age=age, timestamp=date, path=str(path), area_left_lung=150, area_right_lung=160, asymetric_score=0.9375)
         analysis = repo.create(analysis)
-        analysis_dir = f"data/{analysis.id}/"
-        storage_service.write_dicom_file(analysis_dir + "original-image.dcm", ds)
-        storage_service.save_mask_as_image(mask, analysis_dir + "mask.png")
-        storage_service.save_overlay_as_image(ds, mask, analysis_dir + "overlay.png")
+        analysis_dir: Path = Path(analysis.path)
+        storage_service.write_dicom_file(analysis_dir / "original-image.dcm", ds)
+        storage_service.save_mask_as_image(analysis_dir / "mask.png", mask)
+        storage_service.save_overlay_as_image(analysis_dir / "overlay.png", ds, mask)
         return analysis.id

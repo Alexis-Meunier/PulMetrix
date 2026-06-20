@@ -1,19 +1,21 @@
-import pydicom
 import base64
 import io
+import pydicom
 
-from pathlib import Path
-from pydicom.dataset import FileDataset
-import os
 import numpy as np
+import os
+from pathlib import Path
 from PIL import Image
+from pydicom.dataset import FileDataset
 
-def read_dicom_file(image_base64: str) -> FileDataset :
+from src.core.config import IMAGES_PATH
+
+def read_dicom_image(image_base64: str) -> FileDataset:
     """
-    Read a dicom file from String, Path or BinaryIO
+    Reads a dicom file from a String in base64
 
     Args:
-        source (dicom_source): The dicom file we want to read
+        image_base64 (str): The dicom image we want to read
 
     Returns:
         FileDataset: the dicom file read
@@ -27,44 +29,74 @@ def read_dicom_file(image_base64: str) -> FileDataset :
     file_bytes = base64.b64decode(image_base64)
     return pydicom.dcmread(io.BytesIO(file_bytes))
 
-def write_dicom_file(path: str | Path, ds: FileDataset) -> None:
+def read_dicom_file_from_path(source: Path) -> FileDataset:
     """
-    Write a dicom file and associated directory
+    Reads a dicom file from a String, Path
 
     Args:
-        path (str | Path):  The path to write the dicom dataset to
+        source (Path): The dicom file we want to read
+
+    Returns:
+        FileDataset: the dicom file read
+
+    Raises:
+        InvalidDicomError: If the file is not a valid DICOM.
+    """
+    return pydicom.dcmread(IMAGES_PATH / source)
+
+def write_dicom_file(path: Path, ds: FileDataset) -> None:
+    """
+    Writes a dicom file and associated directory
+
+    Args:
+        path (Path):  The path to write the dicom dataset to
         ds (FileDataset): dicom data
 
     Returns:
         None
     """
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    ds.save_as(path)
+    ds.save_as(IMAGES_PATH / path)
 
-def save_mask_as_image(mask: np.ndarray, path: str):
+def read_image(image_base64: str) -> np.ndarray:
+    """
+    Reads an image (png) from a String in base64
+
+    Args:
+        image_base64 (str): The image we want to read
+
+    Returns:
+        np.ndarray (np.uint8): the image pixels
+    """
+    if "," in image_base64:
+        image_base64 = image_base64.split(",")[1]
+
+    file_bytes = base64.b64decode(image_base64)
+    return np.frombuffer(file_bytes, dtype=np.uint8)
+
+def save_mask_as_image(path: Path, mask: np.ndarray):
     """
     Saves a Boolean matrix as a PNG image (black and white)
 
     Args:
-        mask: NumPy matrix of Booleans (False=black, True=white)
         path: destination file path
+        mask: NumPy matrix of Booleans (False=black, True=white)
     
     Returns:
         None
     """
     mask_img = (mask.astype(np.uint8)) * 255
     img = Image.fromarray(mask_img, mode="L")
-    img.save(path)
+    img.save(IMAGES_PATH / path)
 
-
-def save_overlay_as_image(ds, mask: np.ndarray, path: str, mask_color: tuple = (0, 255, 0), mask_alpha: float = 0.4):
+def save_overlay_as_image(path: Path, ds: FileDataset, mask: np.ndarray, mask_color: tuple = (0, 255, 0), mask_alpha: float = 0.4):
     """
     Saves an overlay of the original image with the color mask
 
     Args:
+        path: destination path
         ds: pydicom dataset of the original image
         mask: NumPy matrix of booleans (False=black, True=white)
-        path: destination path
         mask_color: mask color in RGB (default: green)
         mask_alpha: mask transparency (0=transparent, 1=opaque)
     
@@ -86,4 +118,4 @@ def save_overlay_as_image(ds, mask: np.ndarray, path: str, mask_color: tuple = (
     )
 
     result = Image.fromarray(overlay.astype(np.uint8), mode="RGB")
-    result.save(path)
+    result.save(IMAGES_PATH / path)

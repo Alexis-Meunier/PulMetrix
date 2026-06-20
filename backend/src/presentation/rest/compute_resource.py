@@ -1,4 +1,7 @@
+import uuid
+
 from fastapi import APIRouter, Body
+from fastapi.exceptions import HTTPException
 from typing import Annotated
 
 from src.domain.service import compute_service
@@ -13,4 +16,8 @@ async def compute(request: Annotated[ComputeRequest, Body()]):
     Returns:
         The id of the analysis just computed
     """
-    return compute_service.compute(request.image, request.login, request.age, request.timestamp, request.seeds)
+    try:
+        id: uuid.UUID = compute_service.compute(request.image, request.login, request.age, request.timestamp, request.seeds)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    return id

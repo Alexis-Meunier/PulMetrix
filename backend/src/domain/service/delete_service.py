@@ -3,6 +3,7 @@ import uuid
 from pathlib import Path
 from sqlmodel import Session
 
+from src.core.config import IMAGES_PATH
 from src.data.model.analysis_model import Analysis
 from src.data.repository.analysis_repository import AnalysisRepository
 from src.db import engine
@@ -17,7 +18,7 @@ def delete_analysis(id: uuid.UUID):
     with Session(engine) as session:
         repo: AnalysisRepository = AnalysisRepository(session)
         repo_analysis: Analysis = repo.get_by_id(id)
-        base_link: Path = Path(repo_analysis.path)
+        base_link: Path = Path(IMAGES_PATH) / repo_analysis.path
         original_image: Path = base_link / "original_image.dcm"
         mask: Path = base_link / "mask.png"
         overlay: Path = base_link / "overlay.png"
@@ -38,7 +39,7 @@ def delete_analyses(login: str):
         repo: AnalysisRepository = AnalysisRepository(session)
         repo_analyses: list[Analysis] = repo.get_by_patient_login(login)
         for analysis in repo_analyses:
-            base_link: Path = Path(analysis.path)
+            base_link: Path = Path(IMAGES_PATH) / analysis.path
             original_image: Path = base_link / "original_image.dcm"
             mask: Path = base_link / "mask.png"
             overlay: Path = base_link / "overlay.png"

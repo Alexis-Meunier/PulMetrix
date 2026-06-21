@@ -24,7 +24,7 @@ linter:
     - cd backend
   script:
     - uv sync
-    - uv run ruff check
+    - uv run ruff check src
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -36,7 +36,19 @@ type-checker:
     - cd backend
   script:
     - uv sync
-    - uv run ty check
+    - uv run ty check src
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+pytest:
+  stage: Code-Sanity
+  before_script:
+    - pip install uv
+    - cd backend/
+  script:
+    - uv sync --all-extras 
+    - uv run pytest --disable-warnings
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

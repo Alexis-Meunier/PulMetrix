@@ -5,7 +5,7 @@ from src.domain.service import delete_service
 
 router = APIRouter()
 
-@router.delete("/analysis/{id}")
+@router.delete("/analysis/id/{id}")
 async def delete_analysis(id: uuid.UUID):
     """
     Deletes the specified analysis
@@ -15,7 +15,7 @@ async def delete_analysis(id: uuid.UUID):
     """
     delete_service.delete_analysis(id)
 
-@router.delete("/analysis/{login}")
+@router.delete("/analysis/name/{login}")
 async def delete_analyses(login: str):
     """
     Deletes all the analyses and all associated data from a login

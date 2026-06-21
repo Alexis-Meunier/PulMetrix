@@ -64,6 +64,7 @@ dependencies = [
 
 [package.optional-dependencies]
 test = [
+    { name = "httpx" },
     { name = "pytest" },
     { name = "pytest-mock" },
 ]
@@ -80,6 +81,7 @@ dev = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.136.3" },
     { name = "fastapi", extras = ["standard"] },
+    { name = "httpx", marker = "extra == 'test'", specifier = ">=0.28.1" },
     { name = "numpy", specifier = ">=2.4.6" },
     { name = "pillow", specifier = ">=12.2.0" },
     { name = "pydicom", specifier = ">=3.0.2" },

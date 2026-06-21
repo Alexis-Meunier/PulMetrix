@@ -1,22 +1,42 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Upload, FileImage, Clock } from "lucide-react";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
+import { Analysis, BACKEND_URL } from "../App";
+import { handleFetch } from "../App";
 
-interface Patient {
-  id: string;
-  name: string;
-  date: string;
-  study: string;
-}
 
-export function LeftSidebar({ onFileUpload }: { onFileUpload: (file: File) => void }) {
+export function LeftSidebar({ onFileUpload, onSelectAnalysis }: { onFileUpload: (file: File) => void; onSelectAnalysis: (analysisId: string) => void }) {
   const [isDragging, setIsDragging] = useState(false);
-  const [recentPatients] = useState<Patient[]>([
-    { id: "1", name: "Patient A", date: "2026-05-12", study: "Radio Frontale" },
-    { id: "2", name: "Patient B", date: "2026-05-11", study: "Radio Latérale" },
-    { id: "3", name: "Patient C", date: "2026-05-10", study: "Radio Frontale" },
-  ]);
+
+  const [recentExams, setRecentExams] = useState<Analysis[]>([]);
+
+  const convertObjectToAnalysis = (obj: any): Analysis => {
+    return {
+      id: obj.id,
+      login: obj.login,
+      age: obj.age,
+      timestamp: obj.timestamp,
+    };
+  };
+
+  const handleRecentAnalysis = async () => {
+    const response_analysis = await handleFetch(`${BACKEND_URL}/analysis`, null, "GET");
+    if (!response_analysis || !response_analysis.ok) {
+      throw new Error("Échec backend pour la segmentation");
+    }
+    const result_analysis = await response_analysis.json();
+    let recentExamsData: Analysis[] = [];
+    const last_element = result_analysis[result_analysis.length - 1];
+    const last_second_element = result_analysis[result_analysis.length - 2];
+    const last_third_element = result_analysis[result_analysis.length - 3];
+
+    recentExamsData.push(convertObjectToAnalysis(last_third_element));
+    recentExamsData.push(convertObjectToAnalysis(last_second_element));
+    recentExamsData.push(convertObjectToAnalysis(last_element));
+
+    setRecentExams(recentExamsData);
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -42,6 +62,10 @@ export function LeftSidebar({ onFileUpload }: { onFileUpload: (file: File) => vo
       onFileUpload(files[0]);
     }
   };
+
+  useEffect(() => {
+    handleRecentAnalysis();
+  }, []);
 
   return (
     <div className="w-80 bg-sidebar border-r border-sidebar-border flex flex-col h-full">
@@ -93,14 +117,17 @@ export function LeftSidebar({ onFileUpload }: { onFileUpload: (file: File) => vo
         </div>
         <ScrollArea className="h-[calc(100%-2rem)]">
           <div className="space-y-2">
-            {recentPatients.map((patient) => (
+            {recentExams.map((patient) => (
               <button
                 key={patient.id}
                 className="w-full text-left p-3 rounded-lg bg-card hover:bg-accent/10 border border-border transition-colors"
+                onClick={() => {
+                  onSelectAnalysis(patient.id);
+                }}
               >
-                <p className="text-sm mb-1">{patient.name}</p>
-                <p className="text-xs text-muted-foreground">{patient.study}</p>
-                <p className="text-xs text-muted-foreground mt-1">{patient.date}</p>
+                <p className="text-sm mb-1">Patient : {patient.login ? patient.login : "Nom inconnu"}</p>
+                <p className="text-xs text-muted-foreground">Âge : {patient.age ? patient.age : "Âge inconnu"}</p>
+                <p className="text-xs text-muted-foreground mt-1">Date : {patient.timestamp ? patient.timestamp : "Date de radio inconnue"}</p>
               </button>
             ))}
           </div>

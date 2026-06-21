@@ -9,9 +9,25 @@ import { Label } from "./components/ui/label";
 import dicomParser from "dicom-parser";
 type SegmentationMode = "auto" | "semi-manual" | "correction";
 type Seed = { x: number; y: number; type: "left" | "right" };
+export type Analysis = { id: string; login: string; age: number | null; timestamp: string | null };
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8000";
+export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8000";
 
+export const handleFetch = async (url: string, payload: any, method: string) => {
+  try {
+    return fetch(url, {
+      method: method,
+      mode: "cors",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: payload ? JSON.stringify(payload) : null,
+    });
+  } catch (error) {
+    console.error("Erreur lors de la requête fetch:", error);
+    return null;
+  }
+};
 
 export default function App() {
   const [mode, setMode] = useState<SegmentationMode>("auto");
@@ -59,24 +75,21 @@ export default function App() {
     reader.readAsDataURL(file);
   });
 
-  const handleFileUpload = async (file: File) => {
+  const convertDicomFile = async (file: any) => {
     const arrayBuffer = await file.arrayBuffer();
     const byteArray = new Uint8Array(arrayBuffer);
-    const base64 = await fileToBase64(file);
-    setDicomBase64(base64);
-    setIsInfoDialogOpen(true);
-    
+
     const dataSet = dicomParser.parseDicom(byteArray);
-    
+
     const width = dataSet.uint16("x00280011")!;
     const height = dataSet.uint16("x00280010")!;
     const bitsAllocated = dataSet.uint16("x00280100") || 16;
-    
+
     const windowCenter = dataSet.floatString("x00281050") || 40;
     const windowWidth = dataSet.floatString("x00281051") || 400;
 
     const pixelDataElement = dataSet.elements.x7fe00010;
-    
+
     const pixelData = bitsAllocated === 16
       ? new Int16Array(byteArray.buffer, pixelDataElement.dataOffset, pixelDataElement.length / 2)
       : new Uint8Array(byteArray.buffer, pixelDataElement.dataOffset, pixelDataElement.length);
@@ -96,7 +109,6 @@ export default function App() {
 
     for (let i = 0; i < width * height; i++) {
       let val = pixelData[i];
-
       if (val <= low) val = 0;
       else if (val >= high) val = 255;
       else val = ((val - low) / windowWidth) * 255;
@@ -109,22 +121,14 @@ export default function App() {
 
     ctx.putImageData(imageDataObj, 0, 0);
     setDicomImageData(imageDataObj);
-  };
+  }
 
-  const handleFetch = async (url: string, payload: any, method: string) => {
-    try {
-      return fetch(url, {
-        method: method,
-        mode: "cors",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: payload ? JSON.stringify(payload) : null,
-      });
-    } catch (error) {
-      console.error("Erreur lors de la requête fetch:", error);
-      return null;
-    }
+
+  const handleFileUpload = async (file: File) => {
+    await convertDicomFile(file);
+    const base64 = await fileToBase64(file);
+    setDicomBase64(base64);
+    setIsInfoDialogOpen(true);
   };
 
   const handleRunSegmentation = async () => {
@@ -140,6 +144,7 @@ export default function App() {
     setIsProcessing(true);
 
     console.log("Envoi des données au backend pour la segmentation...");
+
     try {
       if (mode === "semi-manual" && seeds.length < 2) {
           setMessage(`Vous avez moins de 2 seeds placés. Ajoutez en ${2 - seeds.length} pour lancer la segmentation`);
@@ -198,6 +203,31 @@ export default function App() {
     }
   };
 
+  const handleLoadAnalysis = async (analysisId: string) => {
+    try {
+
+      const response_image = await handleFetch(`${BACKEND_URL}/analysis/${analysisId}/original-image`, null, "GET");
+      if (!response_image || !response_image.ok) {
+        throw new Error("Échec backend pour l'image originale");
+      }
+      await convertDicomFile(response_image);
+
+      const response_mask = await handleFetch(`${BACKEND_URL}/analysis/${analysisId}/mask`, null, "GET");
+      if (response_mask && response_mask.ok) {
+        const maskBlob = await response_mask.blob();
+        setMaskData(URL.createObjectURL(maskBlob));
+      }
+
+      const response_overlay = await handleFetch(`${BACKEND_URL}/analysis/${analysisId}/overlay`, null, "GET");
+      if (response_overlay && response_overlay.ok) {
+        const overlayBlob = await response_overlay.blob();
+        setOverlayData(URL.createObjectURL(overlayBlob));
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement de l'analyse :", error);
+    }
+  };
+
   const handlePatientInfoSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -212,7 +242,7 @@ export default function App() {
   return (
     <div className="size-full flex bg-background text-foreground">
       <div id="dwv-container" style={{display:"none"}} />
-      <LeftSidebar onFileUpload={handleFileUpload} />
+      <LeftSidebar onFileUpload={handleFileUpload} onSelectAnalysis={handleLoadAnalysis} />
 
       <Dialog open={isInfoDialogOpen} onOpenChange={setIsInfoDialogOpen}>
         <DialogContent>

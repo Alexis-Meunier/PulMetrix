@@ -3,12 +3,12 @@ import io
 import pydicom
 
 import numpy as np
-import os
 from pathlib import Path
 from PIL import Image
 from pydicom.dataset import FileDataset
 
 from src.core.config import IMAGES_PATH
+
 
 def read_dicom_image(image_base64: str) -> FileDataset:
     """
@@ -25,9 +25,11 @@ def read_dicom_image(image_base64: str) -> FileDataset:
     """
     if "," in image_base64:
         image_base64 = image_base64.split(",")[1]
-    
+
     file_bytes = base64.b64decode(image_base64)
+    print("decoded")
     return pydicom.dcmread(io.BytesIO(file_bytes))
+
 
 def read_dicom_file_from_path(source: Path) -> FileDataset:
     """
@@ -44,6 +46,7 @@ def read_dicom_file_from_path(source: Path) -> FileDataset:
     """
     return pydicom.dcmread(IMAGES_PATH / source)
 
+
 def write_dicom_file(path: Path, ds: FileDataset) -> None:
     """
     Writes a dicom file and associated directory
@@ -55,8 +58,13 @@ def write_dicom_file(path: Path, ds: FileDataset) -> None:
     Returns:
         None
     """
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    ds.save_as(IMAGES_PATH / path)
+    # os.makedirs(os.path.dirname(IMAGES_PATH / path), exist_ok=True)
+    full_path = IMAGES_PATH / path
+    full_path.parent.mkdir(parents=True, exist_ok=True)
+    print("created dir " + str(full_path.parent))
+    ds.save_as(full_path)
+    # ds.save_as(IMAGES_PATH / path)
+
 
 def read_image(image_base64: str) -> np.ndarray:
     """
@@ -74,6 +82,7 @@ def read_image(image_base64: str) -> np.ndarray:
     file_bytes = base64.b64decode(image_base64)
     return np.frombuffer(file_bytes, dtype=np.uint8)
 
+
 def save_mask_as_image(path: Path, mask: np.ndarray):
     """
     Saves a Boolean matrix as a PNG image (black and white)
@@ -81,7 +90,7 @@ def save_mask_as_image(path: Path, mask: np.ndarray):
     Args:
         path: destination file path
         mask: NumPy matrix of Booleans (False=black, True=white)
-    
+
     Returns:
         None
     """
@@ -89,7 +98,14 @@ def save_mask_as_image(path: Path, mask: np.ndarray):
     img = Image.fromarray(mask_img, mode="L")
     img.save(IMAGES_PATH / path)
 
-def save_overlay_as_image(path: Path, ds: FileDataset, mask: np.ndarray, mask_color: tuple = (0, 255, 0), mask_alpha: float = 0.4):
+
+def save_overlay_as_image(
+    path: Path,
+    ds: FileDataset,
+    mask: np.ndarray,
+    mask_color: tuple = (0, 255, 0),
+    mask_alpha: float = 0.4,
+):
     """
     Saves an overlay of the original image with the color mask
 
@@ -99,12 +115,16 @@ def save_overlay_as_image(path: Path, ds: FileDataset, mask: np.ndarray, mask_co
         mask: NumPy matrix of booleans (False=black, True=white)
         mask_color: mask color in RGB (default: green)
         mask_alpha: mask transparency (0=transparent, 1=opaque)
-    
+
     Returns:
         None
     """
     pixel_array = ds.pixel_array.astype(np.float32)
-    pixel_array = ((pixel_array - pixel_array.min()) / (pixel_array.max() - pixel_array.min()) * 255).astype(np.uint8)
+    pixel_array = (
+        (pixel_array - pixel_array.min())
+        / (pixel_array.max() - pixel_array.min())
+        * 255
+    ).astype(np.uint8)
 
     base_img = Image.fromarray(pixel_array, mode="L").convert("RGB")
     base_array = np.array(base_img, dtype=np.float32)

@@ -14,7 +14,14 @@ from src.domain.service import storage_service
 from src.domain.service import tvac_service
 from src.domain.service import semi_manual_detection_service
 
-def compute(image: str, login: str | None, age: int | None, date: date | None , seeds: ty.List[Point] | None) -> uuid.UUID:
+
+def compute(
+    image: str,
+    login: str | None,
+    age: int | None,
+    date: date | None,
+    seeds: ty.List[Point] | None,
+) -> uuid.UUID:
     """
     Computes the lung segmentation, saves the results (original image,mask and overlay) and returns the analysis id
 
@@ -45,7 +52,16 @@ def compute(image: str, login: str | None, age: int | None, date: date | None , 
             print(mask[0])
         id: uuid.UUID = uuid.uuid4()
         path: Path = Path(str(id))
-        analysis: Analysis = Analysis(id=id, patient_login=login, patient_age=age, timestamp=date, path=str(path), area_left_lung=150, area_right_lung=160, asymetric_score=0.9375)
+        analysis: Analysis = Analysis(
+            id=id,
+            patient_login=login,
+            patient_age=age,
+            timestamp=date,
+            path=str(path),
+            area_left_lung=150,
+            area_right_lung=160,
+            asymetric_score=0.9375,
+        )
         analysis = repo.create(analysis)
         analysis_dir: Path = Path(analysis.path)
         storage_service.write_dicom_file(analysis_dir / "original-image.dcm", ds)

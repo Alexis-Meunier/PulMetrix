@@ -5,6 +5,7 @@ import { Slider } from "./ui/slider";
 import { Progress } from "./ui/progress";
 import { Paintbrush, Eraser, Wand2, Play, Check, User } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "./ui/tooltip";
 
 type SegmentationMode = "auto" | "semi-manual" | "correction";
 
@@ -13,10 +14,10 @@ interface RightPanelProps {
   onModeChange: (mode: SegmentationMode) => void;
   onRunSegmentation: () => void;
   metrics: {
-    leftLungArea: number;
-    rightLungArea: number;
+    leftLungOfPatientArea: number;
+    rightLungOfPatientArea: number;
     symmetryIndex: number;
-    confidenceScore: number;
+    criticalAssymetric: boolean;
   };
   isProcessing: boolean;
   onOpenPatientInfo: () => void;
@@ -89,16 +90,6 @@ export function RightPanel({
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">Segmentation en cours...</p>
                   <Progress value={65} className="h-2" />
-                </div>
-              )}
-
-              {metrics.confidenceScore > 0 && (
-                <div className="p-4 rounded-lg bg-card border border-border">
-                  <p className="text-xs text-muted-foreground mb-2">Score de Confiance</p>
-                  <div className="flex items-center gap-3">
-                    <Progress value={metrics.confidenceScore} className="flex-1 h-3" />
-                    <span className="text-sm">{metrics.confidenceScore}%</span>
-                  </div>
                 </div>
               )}
             </div>
@@ -199,16 +190,16 @@ export function RightPanel({
               <p className="text-xs text-muted-foreground mb-3">Surface Totale</p>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Poumon Gauche</p>
-                  <p className="text-2xl" style={{ color: "#3B82F6" }}>
-                    {metrics.leftLungArea.toFixed(1)}
+                  <p className="text-xs text-muted-foreground mb-1">Poumon Gauche du patient</p>
+                  <p className="text-2xl" style={{ color: "#10F4B1" }}>
+                    {metrics.leftLungOfPatientArea.toFixed(1)}
                   </p>
                   <p className="text-xs text-muted-foreground">cm²</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Poumon Droit</p>
+                  <p className="text-xs text-muted-foreground mb-1">Poumon Droit du patient</p>
                   <p className="text-2xl" style={{ color: "#10F4B1" }}>
-                    {metrics.rightLungArea.toFixed(1)}
+                    {metrics.rightLungOfPatientArea.toFixed(1)}
                   </p>
                   <p className="text-xs text-muted-foreground">cm²</p>
                 </div>
@@ -221,25 +212,42 @@ export function RightPanel({
                 <Progress
                   value={metrics.symmetryIndex}
                   className="flex-1 h-4"
+                  indicatorClassName={metrics.criticalAssymetric ? "bg-red-500" : "bg-[#10F4B1]"}
                   style={{
-                    background: metrics.symmetryIndex > 90
+                    background: metrics.symmetryIndex > 90 && !metrics.criticalAssymetric
                       ? "rgba(16, 244, 177, 0.2)"
                       : "rgba(245, 158, 11, 0.2)"
                   }}
                 />
-                <span className="text-xl">{metrics.symmetryIndex.toFixed(1)}%</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {metrics.symmetryIndex > 90
-                  ? "✓ Symétrie normale"
-                  : "⚠ Asymétrie détectée"}
-              </p>
+                <span className="text-xl"style={{ color: metrics.criticalAssymetric ? "#EF4444" : "inherit" }}>
+                    {metrics.symmetryIndex.toFixed(1)}%
+                  </span> 
+               </div>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <p className="text-xs text-muted-foreground cursor-help underline-offset-2 hover:underline">
+                      {metrics.symmetryIndex > 90 && !metrics.criticalAssymetric
+                        ? "✓ Symétrie normale"
+                        : "⚠ Asymétrie détectée"}
+                    </p>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-sm max-w-xs">
+                      {metrics.symmetryIndex > 90 && !metrics.criticalAssymetric
+                        ? "Les deux poumons ont une taille similaire, ce qui indique une morphologie normale."
+                        : "Une différence significative de taille entre les deux poumons a été détectée. De plus, si l'indice de symétrie est élevé, cela peut indiquer une surface plus importante du poumon gauche que du poumon droit."}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
 
             <div className="p-4 rounded-lg bg-card border border-border">
-              <p className="text-xs text-muted-foreground mb-2">Volume Total</p>
+              <p className="text-xs text-muted-foreground mb-2">Surface Totale</p>
               <p className="text-2xl">
-                {(metrics.leftLungArea + metrics.rightLungArea).toFixed(1)}
+                {(metrics.leftLungOfPatientArea + metrics.rightLungOfPatientArea).toFixed(1)}
               </p>
               <p className="text-xs text-muted-foreground">cm²</p>
             </div>

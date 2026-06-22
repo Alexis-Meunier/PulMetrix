@@ -13,7 +13,7 @@ from src.utils.point import Point
 from src.domain.service import storage_service
 from src.domain.service import tvac_service
 from src.domain.service import semi_manual_detection_service
-
+from src.domain.service import metrics_service
 
 def compute(
     image: str,
@@ -23,7 +23,7 @@ def compute(
     seeds: ty.List[Point] | None,
 ) -> uuid.UUID:
     """
-    Computes the lung segmentation, saves the results (original image,mask and overlay) and returns the analysis id
+    Computes the lung segmentation and the metrics, saves the results (original image,mask and overlay) and returns the analysis id
 
     Args:
         image(binary str): DICOM image of a chest X-ray
@@ -52,15 +52,16 @@ def compute(
             print(mask[0])
         id: uuid.UUID = uuid.uuid4()
         path: Path = Path(str(id))
+        metrics = metrics_service.compute_lung_metrics(ds, mask)
         analysis: Analysis = Analysis(
             id=id,
             patient_login=login,
             patient_age=age,
             timestamp=date,
             path=str(path),
-            area_left_lung=150,
-            area_right_lung=160,
-            asymetric_score=0.9375,
+            area_left_lung=metrics.area_left_lung,
+            area_right_lung=metrics.area_right_lung,
+            asymetric_score=metrics.asymmetry_score,
         )
         analysis = repo.create(analysis)
         analysis_dir: Path = Path(analysis.path)

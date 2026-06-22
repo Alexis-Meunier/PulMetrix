@@ -35,10 +35,10 @@ export default function App() {
   const [maskData, setMaskData] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [metrics, setMetrics] = useState({
-    leftLungArea: 0,
-    rightLungArea: 0,
+    rightLungOfPatientArea: 0,
+    leftLungOfPatientArea: 0,
     symmetryIndex: 0,
-    confidenceScore: 0,
+    criticalAssymetric: false,
   });
   const [dicomImageData, setDicomImageData] = useState<ImageData | null>(null);
   const [dicomBase64, setDicomBase64] = useState<string | null>(null);
@@ -131,6 +131,8 @@ export default function App() {
     setIsInfoDialogOpen(true);
   };
 
+  const abs = (x: number) => (x < 0 ? -x : x);
+
   const handleRunSegmentation = async () => {
     if (!dicomBase64) {
       console.warn("Aucun DICOM chargé pour l'analyse");
@@ -177,7 +179,7 @@ export default function App() {
       const maskBlob = await response_mask.blob();
       const maskUrl = URL.createObjectURL(maskBlob);
       setMaskData(maskUrl);
-      console.log("Résultat compute :", maskBlob);
+      console.log("Résultat mask :", maskBlob);
 
       const response_overlay = await handleFetch(`${BACKEND_URL}/analysis/${result_id}/overlay`, null, "GET");
 
@@ -188,13 +190,23 @@ export default function App() {
       const overlayBlob = await response_overlay.blob();
       const overlayUrl = URL.createObjectURL(overlayBlob);
       setOverlayData(overlayUrl);
-      console.log("Résultat compute :", overlayBlob);
+      console.log("Résultat overlay :", overlayBlob);
+
+      
+      const response_metrics = await handleFetch(`${BACKEND_URL}/analysis/${result_id}/metrics`, null, "GET");
+
+      if (!response_metrics || !response_metrics.ok) {
+        throw new Error("Échec backend pour les métriques");
+      }
+
+      const result_metrics = await response_metrics.json();
+      console.log("Résultat metrics :", result_metrics);
 
       setMetrics({
-        leftLungArea: 145.3 + Math.random() * 20,
-        rightLungArea: 156.8 + Math.random() * 20,
-        symmetryIndex: 92 + Math.random() * 6,
-        confidenceScore: 88 + Math.random() * 10,
+        leftLungOfPatientArea: result_metrics.area_left_lung,
+        rightLungOfPatientArea: result_metrics.area_right_lung,
+        symmetryIndex: (1 - abs(result_metrics.asymmetry_score)) * 100,
+        criticalAssymetric: result_metrics.is_asymmetry_critical,
       });
     } catch (error) {
       console.error("Erreur de segmentation :", error);
@@ -224,6 +236,21 @@ export default function App() {
         const overlayBlob = await response_overlay.blob();
         setOverlayData(URL.createObjectURL(overlayBlob));
       }
+
+      const response_metrics = await handleFetch(`${BACKEND_URL}/analysis/${analysisId}/metrics`, null, "GET");
+
+      if (!response_metrics || !response_metrics.ok) {
+        throw new Error("Échec backend pour les métriques");
+      }
+
+      const result_metrics = await response_metrics.json();
+
+      setMetrics({
+        leftLungOfPatientArea: result_metrics.area_left_lung,
+        rightLungOfPatientArea: result_metrics.area_right_lung,
+        symmetryIndex: (1 - abs(result_metrics.asymmetry_score)) * 100,
+        criticalAssymetric: result_metrics.is_asymmetry_critical,
+      });
     } catch (error) {
       console.error("Erreur lors du chargement de l'analyse :", error);
     }

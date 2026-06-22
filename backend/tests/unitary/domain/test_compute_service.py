@@ -11,6 +11,7 @@ from src.utils.point import Point
 
 MOCK_DS = MagicMock(name="dicom_dataset")
 MOCK_MASK = MagicMock(name="mask")
+MOCK_METRICS = MagicMock(name="metrics")
 
 def _mock_getitem(self: MagicMock, i: int) -> str:
     return "MASK_HEADER"
@@ -63,39 +64,44 @@ def mock_storage_writes():
          patch("src.domain.service.compute_service.storage_service.write_dicom_file") as mock_write_dicom:
         yield mock_save_mask, mock_save_overlay, mock_write_dicom
 
+@pytest.fixture()
+def mock_metrics() -> Generator[MagicMock, None, None]:
+    with patch("src.domain.service.compute_service.metrics_service.compute_lung_metrics", return_value=MOCK_METRICS) as m:
+        yield m
+
 class TestComputeAutoMode:
-    def test_calls_tvac_when_seeds_is_none(self, mock_tvac: MagicMock, mock_region_growing: MagicMock):
+    def test_calls_tvac_when_seeds_is_none(self, mock_tvac: MagicMock, mock_region_growing: MagicMock, mock_metrics: MagicMock):
         compute("image.dcm", "alice", 30, date(2026, 1, 1), seeds=None)
 
         mock_tvac.assert_called_once_with(MOCK_DS)
         mock_region_growing.assert_not_called()
 
-    def test_calls_tvac_when_seeds_is_empty(self, mock_tvac: MagicMock, mock_region_growing: MagicMock):
+    def test_calls_tvac_when_seeds_is_empty(self, mock_tvac: MagicMock, mock_region_growing: MagicMock, mock_metrics: MagicMock):
         compute("image.dcm", "alice", 30, date(2026, 1, 1), seeds=[])
 
         mock_tvac.assert_called_once_with(MOCK_DS)
         mock_region_growing.assert_not_called()
 
-    def test_returns_a_uuid(self, mock_tvac: MagicMock):
+    def test_returns_a_uuid(self, mock_tvac: MagicMock, mock_metrics: MagicMock):
         result = compute("image.dcm", "alice", 30, date(2026, 1, 1), seeds=None)
 
         assert isinstance(result, uuid.UUID)
 
-    def test_reads_dicom_file(self, mock_storage: MagicMock, mock_tvac: MagicMock):
+    def test_reads_dicom_file(self, mock_storage: MagicMock, mock_tvac: MagicMock, mock_metrics: MagicMock):
         compute("image.dcm", "alice", 30, date(2026, 1, 1), seeds=None)
 
         mock_storage.assert_called_once_with("image.dcm")
 
 
 class TestComputeSemiManualMode:
-    def test_calls_region_growing_with_seeds(self, mock_tvac: MagicMock, mock_region_growing: MagicMock):
+    def test_calls_region_growing_with_seeds(self, mock_tvac: MagicMock, mock_region_growing: MagicMock, mock_metrics: MagicMock):
         seeds = [Point(x=10, y=20), Point(x=30, y=40)]
         compute("image.dcm", "alice", 30, date(2026, 1, 1), seeds=seeds)
 
         mock_region_growing.assert_called_once_with(seeds, MOCK_DS)
         mock_tvac.assert_not_called()
 
-    def test_returns_a_uuid(self, mock_region_growing: MagicMock):
+    def test_returns_a_uuid(self, mock_region_growing: MagicMock, mock_metrics: MagicMock):
         seeds = [Point(x=10, y=20), Point(x=30, y=40)]
         result = compute("image.dcm", "alice", 30, date(2026, 1, 1), seeds=seeds)
 
@@ -103,12 +109,12 @@ class TestComputeSemiManualMode:
 
 
 class TestComputePersistence:
-    def test_creates_analysis_in_repo(self, mock_tvac: MagicMock, mock_repo: MagicMock):
+    def test_creates_analysis_in_repo(self, mock_tvac: MagicMock, mock_repo: MagicMock, mock_metrics: MagicMock):
         compute("image.dcm", "alice", 30, date(2026, 1, 1), seeds=None)
 
         mock_repo.create.assert_called_once()
 
-    def test_persists_correct_patient_data(self, mock_tvac: MagicMock, mock_repo: MagicMock):
+    def test_persists_correct_patient_data(self, mock_tvac: MagicMock, mock_repo: MagicMock, mock_metrics: MagicMock):
         compute("image.dcm", "alice", 30, date(2026, 1, 1), seeds=None)
 
         created: Analysis = mock_repo.create.call_args[0][0]
@@ -116,7 +122,7 @@ class TestComputePersistence:
         assert created.patient_age == 30
         assert created.timestamp == date(2026, 1, 1)
 
-    def test_persists_none_fields_when_absent(self, mock_tvac: MagicMock, mock_repo: MagicMock):
+    def test_persists_none_fields_when_absent(self, mock_tvac: MagicMock, mock_repo: MagicMock, mock_metrics: MagicMock):
         compute("image.dcm", login=None, age=None, date=None, seeds=None)
 
         created: Analysis = mock_repo.create.call_args[0][0]
@@ -124,7 +130,7 @@ class TestComputePersistence:
         assert created.patient_age is None
         assert created.timestamp is None
 
-    def test_returns_id_of_created_analysis(self, mock_tvac: MagicMock, mock_repo: MagicMock):
+    def test_returns_id_of_created_analysis(self, mock_tvac: MagicMock, mock_repo: MagicMock, mock_metrics: MagicMock):
         expected_id = uuid.uuid4()
         mock_repo.create.return_value = MagicMock(spec=Analysis, id=expected_id)
 

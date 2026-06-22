@@ -220,6 +220,5 @@ __marimo__/
 .streamlit/secrets.toml
 
 data/database.db
-*.png
 *.zip
 *.dicom

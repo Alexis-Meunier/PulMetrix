@@ -60,12 +60,14 @@ create-pages:
     publish: public
   rules:
     - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
   before_script:
     - pip install uv
     - cd backend/
     - uv sync
   script:
-    - uv run mkdocs build -f backend/mkdocs.yml -d public
+    - uv run mkdocs build -f mkdocs.yml -d ../public
 
 # ============================================== #
 # |         Reusable Docker template           | #

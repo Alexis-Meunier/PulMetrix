@@ -5,6 +5,12 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.136.3",
     "fastapi[standard]",
+    "mkdocs>=1.6.1",
+    "mkdocs-include-markdown-plugin>=7.3.0",
+    "mkdocs-material>=9.7.6",
+    "mkdocs-swagger-ui-tag>=0.8.0",
+    "mkdocstrings>=1.0.4",
+    "mkdocstrings-python>=2.0.5",
     "numpy>=2.4.6",
     "pillow>=12.2.0",
     "pydicom>=3.0.2",

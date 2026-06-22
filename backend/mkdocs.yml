@@ -1,0 +1,18 @@
+site_name: PulMetrix
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - DB: database.md
+  - API: api.md
+  - User Manual: user_manual.md
+
+theme: 
+  name: material
+  favicon: img/favicon.ico
+
+plugins:
+- mkdocstrings:
+    default_handler: python
+- swagger-ui-tag:
+- include-markdown:

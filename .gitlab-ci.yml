@@ -3,6 +3,7 @@ workflow:
 
 stages:
   - Code-Sanity
+  - Documentation
   - Docker
 
 variables:
@@ -52,6 +53,18 @@ pytest:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+create-pages:
+  stage: Documentation
+  pages:
+    publish: public
+  rules:
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+  before_script:
+    - pip install uv
+    - uv sync
+  script:
+    - uv run mkdocs build -f backend/mkdocs.yml -d public
 
 # ============================================== #
 # |         Reusable Docker template           | #

@@ -1,0 +1,366 @@
+openapi: 3.0.3
+info:
+  title: MedViz API
+  description: |
+    API for lung segmentation and analysis of DICOM chest X-rays.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+
+  /compute:
+    post:
+      summary: Submit a chest X-ray for analysis.
+      description: |
+        Submits a DICOM image for lung segmentation. If seeds are provided, semi-manual mode is enabled. Otherwise, automatic mode is used. The response contains a UUID that can be used to retrieve the results.
+      operationId: submitAnalysis
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - image
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: DICOM image of a chest X-ray
+                login:
+                  type: string
+                  description: Patient login
+                  example: "johan.emmanuelli"
+                age:
+                  type: integer
+                  description: Patient age
+                  example: 21
+                date:
+                  type: string
+                  format: date
+                  description: Date of the X-ray
+                  example: "2004-12-25"
+                seeds:
+                  $ref: '#/components/schemas/Seeds'
+      responses:
+        '201':
+          description: Analysis accepted and completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputeResponse'
+        '400':
+          description: Invalid data (non-DICOM file, invalid seeds, etc.).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /analysis:
+    get:
+      summary: List all analyses.
+      description: Returns a list of all stored analysis UUIDs.
+      operationId: listAnalyses
+      parameters:
+        - name: login
+          in: query
+          required: false
+          description: Filter analyses by patient login.
+          schema:
+            type: string
+            example: "johan.emmanuelli"
+      responses:
+        '200':
+          description: List of analyses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResponse'
+
+  /analysis/{id}:
+    delete:
+      summary: Delete an analysis.
+      description: Deletes the analysis and all associated data (DICOM, masks, metrics, etc.).
+      operationId: deleteAnalysis
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Analysis UUID.
+          schema:
+            $ref: '#/components/schemas/UUID'
+      responses:
+        '204':
+          description: Analysis successfully deleted.
+        '404':
+          description: Analysis not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /analysis/{login}:
+    delete:
+      summary: Delete the analysis by patient login.
+      description: Deletes the analysis by login and all associated data (DICOM, masks, metrics, etc.).
+      operationId: deleteAnalysisByLogin
+      parameters:
+        - name: login
+          in: path
+          required: true
+          description: Patient Login.
+          schema:
+            type: string
+            example: "johan.emmanuelli"
+      responses:
+        '204':
+          description: Analysis successfully deleted.
+        '404':
+          description: Analysis not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /analysis/{id}/original-image:
+    get:
+      summary: Retrieve the original DICOM image
+      operationId: getOriginalImage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Analysis UUID.
+          schema:
+            $ref: '#/components/schemas/UUID'
+      responses:
+        '200':
+          description: Original DICOM image
+          content:
+            application/dicom:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Analysis not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /analysis/{id}/mask:
+    get:
+      summary: Retrieve the segmentation mask
+      operationId: getMask
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Analysis UUID.
+          schema:
+            $ref: '#/components/schemas/UUID'
+      responses:
+        '200':
+          description: Segmentation mask
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Analysis not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      summary: Update the mask with the user's manual corrections
+      description: |
+        Submit the mask that has been manually corrected by the user. The server will recalculate the metrics based on the new mask. Expected format: binary PNG (same dimensions as the original image).
+      operationId: updateMask
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Analysis UUID.
+          schema:
+            $ref: '#/components/schemas/UUID'
+      requestBody:
+        required: true
+        content:
+          image/png:
+            schema:
+              type: string
+              format: binary
+              description: Corrected mask (PNG).
+      responses:
+        '200':
+          description: Updated mask, metrics recalculated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Metrics'
+        '400':
+          description: Invalid mask format or incorrect dimensions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Analysis not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /analysis/{id}/overlay:
+    get:
+      summary: Retrieve the original image with the mask overlaid.
+      operationId: getOverlay
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Analysis UUID.
+          schema:
+            $ref: '#/components/schemas/UUID'
+      responses:
+        '200':
+          description: Original image with the mask overlaid (PNG).
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Analysis not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /analysis/{id}/metrics:
+    get:
+      summary: Retrieve the calculated metrics.
+      operationId: getMetrics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Analysis UUID.
+          schema:
+            $ref: '#/components/schemas/UUID'
+      responses:
+        '200':
+          description: Lung surface area and symmetry metrics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Metrics'
+        '404':
+          description: Analysis not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+
+  schemas:
+
+    Metrics:
+      type: object
+      properties:
+        area_left_lung:
+          type: number
+          format: float
+          description: Surface area of the left lung (cm²).
+          example: 142.5
+        area_right_lung:
+          type: number
+          format: float
+          description: Surface area of the right lung (cm²).
+          example: 138.2
+        asymmetry_score:
+          type: number
+          format: float
+          description: |
+            Asymmetry ratio calculated.
+          example: 1.52
+        is_asymmetry_critical:
+          type: boolean
+          description: |
+            True if the asymmetry_score exceeds the critical threshold. Indicates a potentially pathological asymmetry.
+          example: false
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Invalid DICOM file format"
+
+    Seeds:
+      type: object
+      description: |
+        Pixel coordinates of the seeds for semi-manual mode. Exactly two seeds are required: one per lung. If missing or empty, automatic mode is used.
+      properties:
+          xLeft:
+            type: integer
+            description: X-coordinate in pixels of the left lung
+            example: 145
+          yLeft:
+            type: integer
+            description: Y-coordinate in pixels of the left lung
+            example: 230
+          xRight:
+            type: integer
+            description: X-coordinate in pixels of the right lung
+            example: 67
+          yRight:
+            type: integer
+            description: Y-coordinate in pixels of the right lung
+            example: 0
+      example:
+        xLeft: 145
+        yLeft: 230
+        xRight: 387
+        yRight: 228
+
+    ComputeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: UUID for retrieving results.
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+    AnalysisResponse:
+      type: object
+      properties:
+        analyses:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                $ref: '#/components/schemas/UUID'
+              login:
+                type: string
+                example: "johan.emmanuelli"
+              date:
+                type: string
+                format: date
+                example: "2008-09-15"
+              age:
+                type: integer
+                example: 21
+
+    UUID:
+      type: string
+      format: uuid
+      pattern: "[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"
+      example: "550e8400-e29b-41d4-a716-446655440000"

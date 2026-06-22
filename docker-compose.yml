@@ -8,6 +8,8 @@ services:
 
   backend:
     image: registry.cri.epita.fr/lucil.finkelstein/pulmetrix/backend:latest
+    volumes:
+      - ./backend/data:/app/data
     container_name: pulmetrix_api
     hostname: pulmetrix_api
     ports:

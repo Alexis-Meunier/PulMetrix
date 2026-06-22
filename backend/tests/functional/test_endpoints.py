@@ -127,18 +127,16 @@ class TestComputeEndpoint:
         ds = make_minimal_dicom()
         dicom_bytes = dicom_to_bytes(ds)
         
-        request_json = json.dumps({
-            "login": "alice",
-            "age": 30,
-            "timestamp": "2026-01-01",
-            "seeds": [{"x": 10, "y": 20}],
-        })
-
         response = client.post(
-            "/compute",
-            files={"img": ("image.dcm", dicom_bytes)},
-            data={"request": request_json},
-        )
+                    "/compute",
+                    files={"img": ("image.dcm", dicom_bytes, "application/dicom")},
+                    data={
+                        "login": "alice",
+                        "age": "30",
+                        "timestamp": "2026-01-01", 
+                        "seeds": json.dumps([{"x": 10, "y": 20}]),
+                    },
+                )
 
         assert response.status_code == 201
         assert response.json() == str(analysis_id)
@@ -193,14 +191,17 @@ class TestComputeEndpoint:
         ds = make_minimal_dicom()
         dicom_bytes = dicom_to_bytes(ds)
         
-        request_json = json.dumps({
-            "seeds": [{"x": "not-an-int", "y": 1}]
-        })
+        bad_seeds_json = json.dumps([{"x": "not-an-int", "y": 20}, {"x": 100, "y": 20}])
 
         response = client.post(
             "/compute",
-            files={"img": ("image.dcm", dicom_bytes)},
-            data={"request": request_json},
+            files={"img": ("image.dcm", dicom_bytes, "application/dicom")},
+            data={
+                "login": "anis",
+                "age": "25",
+                "timestamp": "", 
+                "seeds": bad_seeds_json
+            },
         )
 
         assert response.status_code == 400

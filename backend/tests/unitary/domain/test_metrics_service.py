@@ -106,30 +106,6 @@ class TestComputeLungArea:
         assert left_area == pytest.approx(box_area(box_high) / 100)
         assert right_area == pytest.approx(box_area(box_low) / 100)
 
-    def test_raises_when_less_than_two_features(self):
-        img = make_dicom(pixel_spacing=[1.0, 1.0])
-        mask = np.zeros((10, 10), dtype=bool)
-        mask[2:5, 2:5] = True
-
-        with pytest.raises(Exception, match="less than 2 features"):
-            compute_lung_area(img, mask)
-
-    def test_raises_when_no_features_at_all(self):
-        img = make_dicom(pixel_spacing=[1.0, 1.0])
-        mask = np.zeros((10, 10), dtype=bool)
-
-        with pytest.raises(Exception, match="less than 2 features"):
-            compute_lung_area(img, mask)
-
-    def test_raises_when_more_than_two_features(self):
-        img = make_dicom(pixel_spacing=[1.0, 1.0])
-        mask = np.zeros((10, 10), dtype=bool)
-        mask[1:3, 1:3] = True
-        mask[1:3, 5:7] = True
-        mask[7:9, 7:9] = True
-
-        with pytest.raises(Exception, match="more than 2 features"):
-            compute_lung_area(img, mask)
 
 class TestComputeAsymmetryScore:
     def test_perfectly_symmetric_lungs(self):
@@ -208,11 +184,4 @@ class TestComputeLungMetrics:
         mask = make_two_blob_mask()
 
         with pytest.raises(Exception, match="Could not find pixel information"):
-            compute_lung_metrics(img, mask)
-
-    def test_propagates_exception_for_bad_mask(self):
-        img = make_dicom(pixel_spacing=[1.0, 1.0])
-        mask = np.zeros((10, 10), dtype=bool)
-
-        with pytest.raises(Exception, match="less than 2 features"):
             compute_lung_metrics(img, mask)

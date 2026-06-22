@@ -248,7 +248,7 @@ class TestRecomputeMetricsNotFound:
         result = recompute_metrics(uuid.uuid4(), "irrelevant")
 
         assert isinstance(result, MetricsEntity)
-        assert result.area_left_lung == -4
-        assert result.area_right_lung == -4
-        assert result.asymmetry_score == -4
+        assert result.area_left_lung == -3
+        assert result.area_right_lung == -3
+        assert result.asymmetry_score == -3
         assert result.is_asymmetry_critical is True

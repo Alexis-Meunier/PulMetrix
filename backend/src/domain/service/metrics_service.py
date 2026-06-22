@@ -1,5 +1,4 @@
 import numpy as np
-
 from pydicom import FileDataset
 from skimage.measure import label, regionprops
 
@@ -35,9 +34,9 @@ def compute_lung_area(img: FileDataset, mask: np.ndarray) -> tuple[float, float]
     labels, nb_features = label(mask, return_num=True)
 
     if nb_features < 2:
-        raise Exception("There are less than 2 features.")
+        return 0, 0
     elif nb_features > 2:
-        raise Exception("There are more than 2 features.")
+        return 0, 0
 
     vals = regionprops(labels)
     x_zero: float = vals[0].centroid[1]

@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { RotateCw, ZoomIn, ZoomOut, Move, FlipHorizontal, Layers } from "lucide-react";
 import { Button } from "./ui/button";
 import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
+import { Seed } from "../App";
 
 type ViewMode = "raw" | "mask" | "overlay";
-type Seed = { x: number; y: number; type: "left" | "right" };
 
 interface DicomViewportProps {
   canvasRef: React.RefObject<HTMLCanvasElement>;
@@ -28,6 +28,10 @@ export function DicomViewport({ dicomImageData, canvasRef, imageData, maskData, 
   const [localMessage, setLocalMessage] = useState<string | null>(null);
 
   const message = propsMessage ?? localMessage;
+
+useEffect(() => {
+  setSeeds([]);
+}, [dicomImageData]);
 
 useEffect(() => {
     drawCanvas();
@@ -74,7 +78,7 @@ useEffect(() => {
 
   const drawSeeds = (ctx: CanvasRenderingContext2D) => {
     seeds.forEach((seed) => {
-      const color = seed.type === "left" ? "#3B82F6" : "#10F4B1";
+      const color = "#3B82F6";
       ctx.globalAlpha = 1;
       ctx.fillStyle = color;
       ctx.strokeStyle = color;
@@ -105,8 +109,7 @@ useEffect(() => {
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
 
-    const seedType = seeds.length % 2 === 0 ? "left" : "right";
-    const newSeeds: Seed[] = [...seeds, { x, y, type: seedType }];
+    const newSeeds: Seed[] = [...seeds, { x, y }];
     setSeeds(newSeeds);
     setLocalMessage(null);
     onSeedPlaced?.(newSeeds);

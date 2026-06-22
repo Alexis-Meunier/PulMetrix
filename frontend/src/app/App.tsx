@@ -8,7 +8,7 @@ import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import dicomParser from "dicom-parser";
 type SegmentationMode = "auto" | "semi-manual" | "correction";
-type Seed = { x: number; y: number; type: "left" | "right" };
+export type Seed = { x: number; y: number; };
 export type Analysis = { id: string; login: string; age: number | null; timestamp: string | null };
 
 export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8000";
@@ -206,6 +206,7 @@ export default function App() {
   const handleLoadAnalysis = async (analysisId: string) => {
     try {
 
+      setSeeds([]);
       const response_image = await handleFetch(`${BACKEND_URL}/analysis/${analysisId}/original-image`, null, "GET");
       if (!response_image || !response_image.ok) {
         throw new Error("Échec backend pour l'image originale");

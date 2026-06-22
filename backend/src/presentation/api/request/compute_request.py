@@ -8,7 +8,7 @@ class ComputeRequest(BaseModel):
     """
     DTO to represent a compute request
     """
-    image: str
+
     login: str | None = None
     age: int | None = None
     timestamp: date | None = None

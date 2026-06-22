@@ -1,7 +1,5 @@
 import pytest  # noqa: F401
-import uuid
 
-from datetime import date
 
 from src.converter.metrics_converter import (
     entity_to_response,

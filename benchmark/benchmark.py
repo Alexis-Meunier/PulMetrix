@@ -19,14 +19,10 @@
 # %%
 import numpy as np
 import skimage as sk
-from pydicom.dataset import FileDataset
-from pydicom.pixels import pixel_array
 from skimage.measure._regionprops import RegionProperties
 from skimage.morphology import convex_hull_image
 import kagglehub
 from PIL import Image
-from pathlib import Path
-import glob
 import os
 
 # %% [markdown]

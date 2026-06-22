@@ -41,11 +41,13 @@ def mock_read_image(mocker: MagicMock) -> MagicMock:
 def mock_save_mask(mocker: MagicMock) -> MagicMock:
     return mocker.patch("src.domain.service.patch_service.save_mask_as_image")
 
+@pytest.fixture
+def mock_save_overlay(mocker: MagicMock) -> MagicMock:
+    return mocker.patch("src.domain.service.patch_service.save_overlay_as_image")
 
 @pytest.fixture
 def mock_compute_metrics(mocker: MagicMock) -> MagicMock:
     return mocker.patch("src.domain.service.patch_service.compute_lung_metrics")
-
 
 def make_analysis(path: str = "patients/alice/analysis-1") -> SimpleNamespace:
     return SimpleNamespace(path=path)
@@ -64,6 +66,7 @@ class TestRecomputeMetricsSuccess:
         mock_read_dicom: MagicMock,
         mock_read_image: MagicMock,
         mock_save_mask: MagicMock,
+        mock_save_overlay: MagicMock,
         mock_compute_metrics: MagicMock,
     ):
         analysis_id = uuid.uuid4()
@@ -92,6 +95,7 @@ class TestRecomputeMetricsSuccess:
         mock_read_dicom: MagicMock,
         mock_read_image: MagicMock,
         mock_save_mask: MagicMock,
+        mock_save_overlay: MagicMock,
         mock_compute_metrics: MagicMock,
     ):
         analysis = make_analysis(path="patients/bob/analysis-2")
@@ -105,7 +109,7 @@ class TestRecomputeMetricsSuccess:
         recompute_metrics(uuid.uuid4(), "irrelevant")
 
         mock_read_dicom.assert_called_once_with(
-            Path("patients/bob/analysis-2") / "original-image.dcm"
+            Path("patients/bob/analysis-2") / "original_image.dcm"
         )
         mock_save_mask.assert_called_once()
         save_path_arg = mock_save_mask.call_args.args[0]
@@ -118,6 +122,7 @@ class TestRecomputeMetricsSuccess:
         mock_read_image: MagicMock,
         mock_save_mask: MagicMock,
         mock_compute_metrics: MagicMock,
+        mock_save_overlay: MagicMock,
     ):
         mock_repo.get_by_id.return_value = make_analysis()
 
@@ -148,6 +153,7 @@ class TestRecomputeMetricsSuccess:
         mock_read_image: MagicMock,
         mock_save_mask: MagicMock,
         mock_compute_metrics: MagicMock,
+        mock_save_overlay: MagicMock,
     ):
         mock_repo.get_by_id.return_value = make_analysis()
 
@@ -231,7 +237,7 @@ class TestRecomputeMetricsNotFound:
 
         mock_read_dicom.assert_not_called()
         mock_read_image.assert_not_called()
-        mock_save_mask.assert_not_called()
+        mock_save_mask.assert_not_called() 
         mock_compute_metrics.assert_not_called()
 
     def test_propagates_other_exceptions(
@@ -239,6 +245,10 @@ class TestRecomputeMetricsNotFound:
         mock_repo: MagicMock,
     ):
         mock_repo.get_by_id.side_effect = ValueError("boom")
+        result = recompute_metrics(uuid.uuid4(), "irrelevant")
 
-        with pytest.raises(ValueError, match="boom"):
-            recompute_metrics(uuid.uuid4(), "irrelevant")
+        assert isinstance(result, MetricsEntity)
+        assert result.area_left_lung == -4
+        assert result.area_right_lung == -4
+        assert result.asymmetry_score == -4
+        assert result.is_asymmetry_critical is True

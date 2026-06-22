@@ -10,7 +10,7 @@ from pydicom.dataset import FileDataset
 from src.core.config import IMAGES_PATH
 
 
-def read_dicom_image(image_base64: str) -> FileDataset:
+def read_dicom_image64(image_base64: str) -> FileDataset:
     """
     Reads a dicom file from a String in base64
 
@@ -29,6 +29,21 @@ def read_dicom_image(image_base64: str) -> FileDataset:
     file_bytes = base64.b64decode(image_base64)
     print("decoded")
     return pydicom.dcmread(io.BytesIO(file_bytes))
+
+def read_dicom_image(image: bytes) -> FileDataset:
+    """
+    Reads a dicom file from an image in bytes
+
+    Args:
+        image (bytes): The dicom image we want to read
+
+    Returns:
+        FileDataset: the dicom file read
+
+    Raises:
+        InvalidDicomError: If the file is not a valid DICOM.
+    """
+    return pydicom.dcmread(io.BytesIO(image))
 
 
 def read_dicom_file_from_path(source: Path) -> FileDataset:
@@ -61,12 +76,12 @@ def write_dicom_file(path: Path, ds: FileDataset) -> None:
     # os.makedirs(os.path.dirname(IMAGES_PATH / path), exist_ok=True)
     full_path = IMAGES_PATH / path
     full_path.parent.mkdir(parents=True, exist_ok=True)
-    print("created dir " + str(full_path.parent))
+    print("created " + str(full_path))
     ds.save_as(full_path)
     # ds.save_as(IMAGES_PATH / path)
 
 
-def read_image(image_base64: str) -> np.ndarray:
+def read_image64(image_base64: str) -> np.ndarray:
     """
     Reads an image (png) from a String in base64
 
@@ -82,6 +97,19 @@ def read_image(image_base64: str) -> np.ndarray:
     file_bytes = base64.b64decode(image_base64)
     return np.frombuffer(file_bytes, dtype=np.uint8)
 
+
+def read_image(image: bytes) -> np.ndarray:
+    """
+    Reads an image (png) from bytes in grayscale
+
+    Args:
+        image (bytes): The image we want to read
+
+    Returns:
+        np.ndarray (np.uint8): the image pixels
+    """
+    img = Image.open(io.BytesIO(image)).convert('L')
+    return np.array(img)
 
 def save_mask_as_image(path: Path, mask: np.ndarray):
     """

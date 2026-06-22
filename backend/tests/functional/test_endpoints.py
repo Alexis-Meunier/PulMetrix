@@ -1,17 +1,66 @@
 import uuid
 import pytest
+import json
+import io
+import pydicom
+import numpy as np
 from unittest.mock import MagicMock
 
 from datetime import date
 from fastapi.testclient import TestClient
 from pathlib import Path
 from types import SimpleNamespace
+from PIL import Image
+from pydicom.dataset import FileDataset, FileMetaDataset
+from pydicom.uid import ExplicitVRLittleEndian, UID, generate_uid
 
 from src.domain.entity.metrics_entity import MetricsEntity
 from src.main import app
 from src.utils.point import Point
 
 client = TestClient(app)
+
+def make_minimal_dicom() -> FileDataset:
+    file_meta = FileMetaDataset()
+    file_meta.MediaStorageSOPClassUID = UID("1.2.840.10008.5.1.4.1.1.2")
+    file_meta.MediaStorageSOPInstanceUID = generate_uid()
+    file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+
+    ds = FileDataset(
+        "",
+        {},
+        file_meta=file_meta,
+        preamble=b"\0" * 128,
+    )
+
+    ds.is_little_endian = True
+    ds.is_implicit_VR = False
+
+    ds.PatientName = "Test^Patient"
+    ds.PatientID = "123"
+
+    ds.SOPClassUID = file_meta.MediaStorageSOPClassUID
+    ds.SOPInstanceUID = file_meta.MediaStorageSOPInstanceUID
+
+    return ds
+
+def dicom_to_bytes(ds: FileDataset) -> bytes:
+    buf = io.BytesIO()
+    pydicom.dcmwrite(
+        buf,
+        ds,
+        enforce_file_format=True,
+    )
+    return buf.getvalue()
+
+def create_png_mask(width: int = 100, height: int = 100) -> bytes:
+    """Create a simple PNG mask (black and white image)"""
+    mask_array = np.zeros((height, width), dtype=np.uint8)
+    mask_array[25:75, 25:75] = 255
+    mask_img = Image.fromarray(mask_array, mode="L")
+    buf = io.BytesIO()
+    mask_img.save(buf, format="PNG")
+    return buf.getvalue()
 
 def make_analysis_row(
     id: uuid.UUID | None = None,
@@ -74,53 +123,87 @@ class TestComputeEndpoint:
     def test_returns_analysis_id_on_success(self, mock_compute: MagicMock):
         analysis_id = uuid.uuid4()
         mock_compute.return_value = analysis_id
+        
+        ds = make_minimal_dicom()
+        dicom_bytes = dicom_to_bytes(ds)
+        
+        request_json = json.dumps({
+            "login": "alice",
+            "age": 30,
+            "timestamp": "2026-01-01",
+            "seeds": [{"x": 10, "y": 20}],
+        })
 
         response = client.post(
             "/compute",
-            json={
-                "image": "base64-dicom-data",
-                "login": "alice",
-                "age": 30,
-                "timestamp": "2026-01-01",
-                "seeds": [{"x": 10, "y": 20}],
-            },
+            files={"img": ("image.dcm", dicom_bytes)},
+            data={"request": request_json},
         )
 
-        assert response.status_code == 200
+        assert response.status_code == 201
         assert response.json() == str(analysis_id)
-        mock_compute.assert_called_once_with(
-            "base64-dicom-data", "alice", 30, date(2026, 1, 1), [Point(x=10, y=20)]
-        )
+        mock_compute.assert_called_once()
+        call_args = mock_compute.call_args
+        assert call_args[0][0] == dicom_bytes
+        assert call_args[0][1] == "alice"
+        assert call_args[0][2] == 30
+        assert call_args[0][3] == date(2026, 1, 1)
+        assert call_args[0][4] == [Point(x=10, y=20)]
 
     def test_accepts_minimal_body_with_only_required_field(self, mock_compute: MagicMock):
         mock_compute.return_value = uuid.uuid4()
+        
+        ds = make_minimal_dicom()
+        dicom_bytes = dicom_to_bytes(ds)
 
-        response = client.post("/compute", json={"image": "base64-dicom-data"})
+        response = client.post(
+            "/compute",
+            files={"img": ("image.dcm", dicom_bytes)},
+        )
 
-        assert response.status_code == 200
-        mock_compute.assert_called_once_with("base64-dicom-data", None, None, None, None)
+        assert response.status_code == 201
+        mock_compute.assert_called_once()
+        call_args = mock_compute.call_args
+        assert call_args[0][0] == dicom_bytes
 
-    def test_returns_404_when_compute_raises_value_error(self, mock_compute: MagicMock):
+    def test_returns_400_when_compute_raises_value_error(self, mock_compute: MagicMock):
         mock_compute.side_effect = ValueError("bad input")
+        
+        ds = make_minimal_dicom()
+        dicom_bytes = dicom_to_bytes(ds)
 
-        response = client.post("/compute", json={"image": "base64-dicom-data"})
+        response = client.post(
+            "/compute",
+            files={"img": ("image.dcm", dicom_bytes)},
+        )
 
-        assert response.status_code == 404
-        assert response.json()["detail"] == "Analysis not found"
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Invalid DICOM"
 
     def test_returns_422_when_image_field_missing(self, mock_compute: MagicMock):
-        response = client.post("/compute", json={"login": "alice"})
+        response = client.post(
+            "/compute",
+            data={"request": {"login": "alice"}}
+        )
 
         assert response.status_code == 422
         mock_compute.assert_not_called()
 
-    def test_returns_422_for_malformed_seed_point(self, mock_compute: MagicMock):
+    def test_returns_400_for_malformed_seed_point(self, mock_compute: MagicMock):
+        ds = make_minimal_dicom()
+        dicom_bytes = dicom_to_bytes(ds)
+        
+        request_json = json.dumps({
+            "seeds": [{"x": "not-an-int", "y": 1}]
+        })
+
         response = client.post(
             "/compute",
-            json={"image": "data", "seeds": [{"x": "not-an-int", "y": 1}]},
+            files={"img": ("image.dcm", dicom_bytes)},
+            data={"request": request_json},
         )
 
-        assert response.status_code == 422
+        assert response.status_code == 400
         mock_compute.assert_not_called()
 
 class TestDeleteEndpoints:
@@ -129,7 +212,7 @@ class TestDeleteEndpoints:
 
         response = client.delete(f"/analysis/id/{analysis_id}")
 
-        assert response.status_code == 200
+        assert response.status_code == 204
         mock_delete_analysis.assert_called_once_with(analysis_id)
 
     def test_delete_analysis_with_invalid_uuid_returns_422(self, mock_delete_analysis: MagicMock):
@@ -141,7 +224,7 @@ class TestDeleteEndpoints:
     def test_delete_analyses_by_login(self, mock_delete_analyses: MagicMock):
         response = client.delete("/analysis/name/alice")
 
-        assert response.status_code == 200
+        assert response.status_code == 204
         mock_delete_analyses.assert_called_once_with("alice")
 
 class TestGetAnalysesEndpoint:
@@ -184,8 +267,8 @@ class TestGetFileEndpoints:
         "url_suffix, mock_fixture_name, media_type",
         [
             ("original-image", "mock_get_original_image", "application/dicom"),
-            ("mask", "mock_get_mask", "application/png"),
-            ("overlay", "mock_get_overlay", "application/png"),
+            ("mask", "mock_get_mask", "image/png"),
+            ("overlay", "mock_get_overlay", "image/png"),
         ],
     )
     def test_returns_file_on_success(
@@ -258,8 +341,11 @@ class TestPatchMaskEndpoint:
         mock_recompute_metrics.return_value = MetricsEntity(10.0, 9.5, -0.026, False)
 
         analysis_id = uuid.uuid4()
+        mask_bytes = create_png_mask()
+
         response = client.patch(
-            f"/analysis/{analysis_id}/mask", json={"mask": "base64-mask-data"}
+            f"/analysis/{analysis_id}/mask",
+            files={"image": ("mask.png", mask_bytes)},
         )
 
         assert response.status_code == 200
@@ -269,13 +355,17 @@ class TestPatchMaskEndpoint:
             "asymmetry_score": -0.026,
             "is_asymmetry_critical": False,
         }
-        mock_recompute_metrics.assert_called_once_with(analysis_id, "base64-mask-data")
+        mock_recompute_metrics.assert_called_once_with(analysis_id, mask_bytes)
 
     def test_returns_404_when_analysis_not_found(self, mock_recompute_metrics: MagicMock):
         mock_recompute_metrics.return_value = MetricsEntity(-1, -1, -1, True)
 
+        analysis_id = uuid.uuid4()
+        mask_bytes = create_png_mask()
+
         response = client.patch(
-            f"/analysis/{uuid.uuid4()}/mask", json={"mask": "base64-mask-data"}
+            f"/analysis/{analysis_id}/mask",
+            files={"image": ("mask.png", mask_bytes)},
         )
 
         assert response.status_code == 404
@@ -284,8 +374,12 @@ class TestPatchMaskEndpoint:
     def test_returns_400_on_shape_mismatch(self, mock_recompute_metrics: MagicMock):
         mock_recompute_metrics.return_value = MetricsEntity(-2, -2, -2, True)
 
+        analysis_id = uuid.uuid4()
+        mask_bytes = create_png_mask()
+
         response = client.patch(
-            f"/analysis/{uuid.uuid4()}/mask", json={"mask": "base64-mask-data"}
+            f"/analysis/{analysis_id}/mask",
+            files={"image": ("mask.png", mask_bytes)},
         )
 
         assert response.status_code == 400
@@ -295,7 +389,7 @@ class TestPatchMaskEndpoint:
         )
 
     def test_returns_422_when_mask_field_missing(self, mock_recompute_metrics: MagicMock):
-        response = client.patch(f"/analysis/{uuid.uuid4()}/mask", json={})
+        response = client.patch(f"/analysis/{uuid.uuid4()}/mask")
 
         assert response.status_code == 422
         mock_recompute_metrics.assert_not_called()

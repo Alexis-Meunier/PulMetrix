@@ -10,17 +10,15 @@ from src.data.model.analysis_model import Analysis
 from src.data.repository.analysis_repository import AnalysisRepository
 from src.db import engine
 from src.utils.point import Point
-from src.domain.service import storage_service
-from src.domain.service import tvac_service
-from src.domain.service import semi_manual_detection_service
-from src.domain.service import metrics_service
+from src.domain.service import metrics_service, semi_manual_detection_service, storage_service, tvac_service
+from src.domain.entity.metrics_entity import MetricsEntity
 
 def compute(
-    image: str,
-    login: str | None,
-    age: int | None,
-    date: date | None,
-    seeds: ty.List[Point] | None,
+    image: bytes,
+    login: str | None = None,
+    age: int | None = None,
+    date: date | None = None,
+    seeds: ty.List[Point] | None = None,
 ) -> uuid.UUID:
     """
     Computes the lung segmentation and the metrics, saves the results (original image,mask and overlay) and returns the analysis id
@@ -52,7 +50,7 @@ def compute(
             print(mask[0])
         id: uuid.UUID = uuid.uuid4()
         path: Path = Path(str(id))
-        metrics = metrics_service.compute_lung_metrics(ds, mask)
+        metrics: MetricsEntity = metrics_service.compute_lung_metrics(ds, mask)
         analysis: Analysis = Analysis(
             id=id,
             patient_login=login,
@@ -65,7 +63,7 @@ def compute(
         )
         analysis = repo.create(analysis)
         analysis_dir: Path = Path(analysis.path)
-        storage_service.write_dicom_file(analysis_dir / "original-image.dcm", ds)
+        storage_service.write_dicom_file(analysis_dir / "original_image.dcm", ds)
         storage_service.save_mask_as_image(analysis_dir / "mask.png", mask)
         storage_service.save_overlay_as_image(analysis_dir / "overlay.png", ds, mask)
         return analysis.id

@@ -36,19 +36,19 @@ def make_minimal_dicom() -> FileDataset:
 
     return ds
 
-def dicom_to_base64(ds: FileDataset) -> str:
+def dicom_to_bytes(ds: FileDataset) -> bytes:
     buf = io.BytesIO()
     pydicom.dcmwrite(
         buf,
         ds,
         enforce_file_format=True,
     )
-    return base64.b64encode(buf.getvalue()).decode("utf-8")
-
+    return buf.getvalue()
+    
 class TestReadDicomFile:
     def test_reads_valid_base64_dicom(self) -> None:
         ds = make_minimal_dicom()
-        encoded = dicom_to_base64(ds)
+        encoded = dicom_to_bytes(ds)
 
         result = read_dicom_image(encoded)
 
@@ -56,7 +56,7 @@ class TestReadDicomFile:
 
     def test_preserves_patient_name(self) -> None:
         ds = make_minimal_dicom()
-        encoded = dicom_to_base64(ds)
+        encoded = dicom_to_bytes(ds)
 
         result = read_dicom_image(encoded)
 
@@ -64,28 +64,15 @@ class TestReadDicomFile:
 
     def test_preserves_patient_id(self) -> None:
         ds = make_minimal_dicom()
-        encoded = dicom_to_base64(ds)
+        encoded = dicom_to_bytes(ds)
 
         result = read_dicom_image(encoded)
 
         assert result.PatientID == "123"
 
-    def test_strips_data_url_prefix(self) -> None:
-        """
-        Base64 strings from a browser often arrive as 'data:...;base64,<data>'.
-        """
-        ds = make_minimal_dicom()
-        raw_b64 = dicom_to_base64(ds)
-        with_prefix = f"data:application/dicom;base64,{raw_b64}"
-
-        result = read_dicom_image(with_prefix)
-
-        assert isinstance(result, FileDataset)
-
     def test_without_prefix_also_works(self) -> None:
         ds = make_minimal_dicom()
-        encoded = dicom_to_base64(ds)
-        assert "," not in encoded
+        encoded = dicom_to_bytes(ds)
 
         result = read_dicom_image(encoded)
 

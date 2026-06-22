@@ -18,6 +18,7 @@ def delete_analysis(id: uuid.UUID):
     with Session(engine) as session:
         repo: AnalysisRepository = AnalysisRepository(session)
         repo_analysis: Analysis = repo.get_by_id(id)
+        repo.delete_by_id(id)
         base_link: Path = Path(IMAGES_PATH) / repo_analysis.path
         original_image: Path = base_link / "original_image.dcm"
         mask: Path = base_link / "mask.png"
@@ -26,18 +27,22 @@ def delete_analysis(id: uuid.UUID):
         mask.unlink()
         overlay.unlink()
         base_link.rmdir()
-        repo.delete_by_id(id)
 
-def delete_analyses(login: str):
+def delete_analyses(login: str) -> bool:
     """
     Gets all the analyses from the DB
 
     Args:
         login(str): The patient's login
+
+    Returns:
+        bool: Deleted at least one analysis
     """
     with Session(engine) as session:
         repo: AnalysisRepository = AnalysisRepository(session)
         repo_analyses: list[Analysis] = repo.get_by_patient_login(login)
+        if not repo.delete_by_patient_login(login):
+            return False
         for analysis in repo_analyses:
             base_link: Path = Path(IMAGES_PATH) / analysis.path
             original_image: Path = base_link / "original_image.dcm"
@@ -47,4 +52,4 @@ def delete_analyses(login: str):
             mask.unlink()
             overlay.unlink()
             base_link.rmdir()
-        repo.delete_by_patient_login(login)
+        return True

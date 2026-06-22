@@ -64,7 +64,7 @@ class TestGetOriginalImage:
 
         path = get_original_image(uuid.uuid4())
 
-        assert path == IMAGES_PATH / "analyses/a/original-image.dcm"
+        assert path == IMAGES_PATH / "analyses/a/original_image.dcm"
 
     def test_returns_error_path_when_not_found(self, mock_repo: MagicMock) -> None:
         mock_repo.get_by_id.side_effect = NoResultFound()

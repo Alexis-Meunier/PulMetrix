@@ -29,6 +29,23 @@ export const handleFetch = async (url: string, payload: any, method: string) => 
   }
 };
 
+export const handleFetchMultipart = async (url: string, file: Blob, requestData: any, method: string) => {
+  try {
+    const formData = new FormData();
+    formData.append("img", file, "image.dcm");
+    formData.append("request", JSON.stringify(requestData));
+
+    return await fetch(url, {
+      method: method,
+      mode: "cors",
+      body: formData,
+    });
+  } catch (error) {
+    console.error("Erreur lors de la requête fetch:", error);
+    return null;
+  }
+};
+
 export default function App() {
   const [mode, setMode] = useState<SegmentationMode>("auto");
   const [imageData, setImageData] = useState<string | null>(null);
@@ -133,6 +150,16 @@ export default function App() {
 
   const abs = (x: number) => (x < 0 ? -x : x);
 
+  const dataUrlToBlob = (dataUrl: string): Blob => {
+    const [header, base64Data] = dataUrl.split(",");
+    const byteString = atob(base64Data);
+    const byteArray = new Uint8Array(byteString.length);
+    for (let i = 0; i < byteString.length; i++) {
+      byteArray[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([byteArray], { type: "application/dicom" });
+  };
+
   const handleRunSegmentation = async () => {
     if (!dicomBase64) {
       console.warn("Aucun DICOM chargé pour l'analyse");
@@ -153,15 +180,16 @@ export default function App() {
           return;
       }
 
-      const payload = {
-        image: dicomBase64,
+      const requestData = {
         login: patientName,
         age: Number(patientAge) || null,
         timestamp: timestampIso,
         seeds: seeds.map((seed) => ({ x: Math.round(seed.x), y: Math.round(seed.y) })),
       };
 
-      const response_id = await handleFetch(`${BACKEND_URL}/compute`, payload, "POST");
+      const imageBlob = dataUrlToBlob(dicomBase64);
+
+      const response_id = await handleFetchMultipart(`${BACKEND_URL}/compute`, imageBlob, requestData, "POST");
 
       if (!response_id || !response_id.ok) {
         throw new Error("Échec backend pour la segmentation");

@@ -27,13 +27,29 @@ export function LeftSidebar({ onFileUpload, onSelectAnalysis }: { onFileUpload: 
     }
     const result_analysis = await response_analysis.json();
     let recentExamsData: Analysis[] = [];
-    const last_element = result_analysis[result_analysis.length - 1];
-    const last_second_element = result_analysis[result_analysis.length - 2];
-    const last_third_element = result_analysis[result_analysis.length - 3];
 
-    recentExamsData.push(convertObjectToAnalysis(last_third_element));
-    recentExamsData.push(convertObjectToAnalysis(last_second_element));
-    recentExamsData.push(convertObjectToAnalysis(last_element));
+    if (result_analysis.length === 0) {
+      setRecentExams([]);
+      return;
+    } else if (result_analysis.length === 1) {
+      const last_element = result_analysis[result_analysis.length - 1];
+
+      recentExamsData.push(convertObjectToAnalysis(last_element));
+    } else if (result_analysis.length === 2) {
+      const last_element = result_analysis[result_analysis.length - 1];
+      const last_second_element = result_analysis[result_analysis.length - 2];
+
+      recentExamsData.push(convertObjectToAnalysis(last_element));
+      recentExamsData.push(convertObjectToAnalysis(last_second_element));
+    } else {
+      const last_element = result_analysis[result_analysis.length - 1];
+      const last_second_element = result_analysis[result_analysis.length - 2];
+      const last_third_element = result_analysis[result_analysis.length - 3];
+
+      recentExamsData.push(convertObjectToAnalysis(last_element));
+      recentExamsData.push(convertObjectToAnalysis(last_second_element));
+      recentExamsData.push(convertObjectToAnalysis(last_third_element));
+    }
 
     setRecentExams(recentExamsData);
   };

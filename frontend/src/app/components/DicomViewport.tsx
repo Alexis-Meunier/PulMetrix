@@ -137,50 +137,7 @@ useEffect(() => {
     <div className="flex-1 flex flex-col bg-background">
       <div className="p-4 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setRotation((r) => (r + 90) % 360)}
-            title="Rotation"
-          >
-            <RotateCw className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setZoom((z) => Math.min(z + 0.2, 3))}
-            title="Zoom +"
-          >
-            <ZoomIn className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setZoom((z) => Math.max(z - 0.2, 0.5))}
-            title="Zoom -"
-          >
-            <ZoomOut className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              setZoom(1);
-              setPan({ x: 0, y: 0 });
-              setRotation(0);
-            }}
-            title="Pan"
-          >
-            <Move className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setRotation((r) => (r + 180) % 360)}
-            title="Miroir"
-          >
-            <FlipHorizontal className="w-4 h-4" />
-          </Button>
+
         </div>
 
         <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)}>

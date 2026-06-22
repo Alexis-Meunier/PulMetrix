@@ -62,6 +62,7 @@ create-pages:
     - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
   before_script:
     - pip install uv
+    - cd backend/
     - uv sync
   script:
     - uv run mkdocs build -f backend/mkdocs.yml -d public

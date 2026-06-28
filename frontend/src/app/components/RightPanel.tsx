@@ -8,6 +8,7 @@ import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "./ui/tooltip";
 
 type SegmentationMode = "auto" | "semi-manual" | "correction";
+type CorrectionTool = "brush" | "eraser";
 
 interface RightPanelProps {
   mode: SegmentationMode;
@@ -21,6 +22,11 @@ interface RightPanelProps {
   };
   isProcessing: boolean;
   onOpenPatientInfo: () => void;
+  brushSize: number[];
+  onBrushSizeChange: (value: number[]) => void;
+  correctionTool: CorrectionTool;
+  onCorrectionToolChange: (tool: CorrectionTool) => void;
+  onValidateCorrection: () => void;
 }
 
 export function RightPanel({
@@ -30,10 +36,13 @@ export function RightPanel({
   metrics,
   isProcessing,
   onOpenPatientInfo,
+  brushSize,
+  onBrushSizeChange,
+  correctionTool,
+  onCorrectionToolChange,
+  onValidateCorrection
 }: RightPanelProps) {
-  const [brushSize, setBrushSize] = useState([10]);
   const [maskOpacity, setMaskOpacity] = useState([50]);
-  const [correctionTool, setCorrectionTool] = useState<"brush" | "eraser" | "smooth">("brush");
 
   return (
     <div className="w-96 bg-sidebar border-l border-sidebar-border flex flex-col h-full">
@@ -124,6 +133,8 @@ export function RightPanel({
             </div>
           )}
 
+          
+
           {mode === "correction" && (
             <div className="space-y-4">
               <div>
@@ -131,7 +142,7 @@ export function RightPanel({
                 <ToggleGroup
                   type="single"
                   value={correctionTool}
-                  onValueChange={(v) => v && setCorrectionTool(v as typeof correctionTool)}
+                  onValueChange={(v) => v && onCorrectionToolChange(v as CorrectionTool)}
                   className="grid grid-cols-3 gap-2"
                 >
                   <ToggleGroupItem value="brush">
@@ -139,9 +150,6 @@ export function RightPanel({
                   </ToggleGroupItem>
                   <ToggleGroupItem value="eraser">
                     <Eraser className="w-4 h-4" />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="smooth">
-                    <Wand2 className="w-4 h-4" />
                   </ToggleGroupItem>
                 </ToggleGroup>
               </div>
@@ -151,7 +159,7 @@ export function RightPanel({
                 <div className="flex items-center gap-3">
                   <Slider
                     value={brushSize}
-                    onValueChange={setBrushSize}
+                    onValueChange={onBrushSizeChange}
                     min={5}
                     max={50}
                     step={1}
@@ -176,10 +184,17 @@ export function RightPanel({
                 </div>
               </div>
 
-              <Button className="w-full" variant="outline">
+              <Button className="w-full" variant="outline" onClick={onValidateCorrection}>
                 <Check className="w-4 h-4 mr-2" />
                 Valider les Modifications
               </Button>
+
+              {isProcessing && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Calcul des métriques en cours...</p>
+                  <Progress value={65} className="h-2" />
+                </div>
+              )}
             </div>
           )}
         </TabsContent>

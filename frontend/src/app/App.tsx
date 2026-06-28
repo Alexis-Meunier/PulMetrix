@@ -1,17 +1,19 @@
 import { FormEvent, useRef, useState } from "react";
 import { LeftSidebar } from "./components/LeftSidebar";
-import { DicomViewport } from "./components/DicomViewport";
 import { RightPanel } from "./components/RightPanel";
 import { Button } from "./components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./components/ui/dialog";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import dicomParser from "dicom-parser";
+import { DicomViewport, DicomViewportRef } from "./components/DicomViewport";
+
 type SegmentationMode = "auto" | "semi-manual" | "correction";
 export type Seed = { x: number; y: number; };
 export type Analysis = { id: string; login: string; age: number | null; timestamp: string | null };
 
 export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8000";
+
 
 export const handleFetch = async (url: string, payload: any, method: string) => {
   try {
@@ -33,7 +35,19 @@ export const handleFetchMultipart = async (url: string, file: Blob, requestData:
   try {
     const formData = new FormData();
     formData.append("img", file, "image.dcm");
-    formData.append("request", JSON.stringify(requestData));
+
+    if (requestData?.login != null) {
+      formData.append("login", requestData.login);
+    }
+    if (requestData?.age != null) {
+      formData.append("age", String(requestData.age));
+    }
+    if (requestData?.timestamp != null) {
+      formData.append("timestamp", requestData.timestamp);
+    }
+    if (requestData?.seeds != null) {
+      formData.append("seeds", JSON.stringify(requestData.seeds));
+    }
 
     return await fetch(url, {
       method: method,
@@ -66,9 +80,17 @@ export default function App() {
   const [seeds, setSeeds] = useState<Seed[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [overlayData, setOverlayData] = useState<string | null>(null);
+  const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>(null);
+  const [brushSize, setBrushSize] = useState([10]);
+  const [correctionTool, setCorrectionTool] = useState<"brush" | "eraser">("brush");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const dicomViewportRef = useRef<DicomViewportRef>(null);
 
+  const handleValidateCorrectionClick = () => {
+    dicomViewportRef.current?.validateCorrection();
+  };
+  
   const parseDateFrToIso = (dateFr: string): string | null => {
     const match = dateFr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     if (!match) return null;
@@ -197,6 +219,7 @@ export default function App() {
 
       const result_id = await response_id.json();
       console.log("Résultat compute :", result_id);
+      setCurrentAnalysisId(result_id);
 
       const response_mask = await handleFetch(`${BACKEND_URL}/analysis/${result_id}/mask`, null, "GET");
 
@@ -245,8 +268,9 @@ export default function App() {
 
   const handleLoadAnalysis = async (analysisId: string) => {
     try {
-
+      setCurrentAnalysisId(analysisId); 
       setSeeds([]);
+
       const response_image = await handleFetch(`${BACKEND_URL}/analysis/${analysisId}/original-image`, null, "GET");
       if (!response_image || !response_image.ok) {
         throw new Error("Échec backend pour l'image originale");
@@ -293,6 +317,54 @@ export default function App() {
     }
 
     setIsInfoDialogOpen(false);
+  };
+
+  const handleMaskCorrected = async (newMaskBlob: Blob) => {
+    if (!currentAnalysisId) return;
+
+    setIsProcessing(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", newMaskBlob, "mask.png");
+
+      const response = await fetch(`${BACKEND_URL}/analysis/${currentAnalysisId}/mask`, {
+                                  method: "PATCH",
+                                  mode: "cors",
+                                  body: formData,
+                                });
+
+      if (!response.ok) throw new Error(`Échec PATCH du masque pour l'analyse ${currentAnalysisId}`);
+
+      const updatedMetrics = await response.json();
+      console.log("Métriques mises à jour après correction du masque :", updatedMetrics);
+
+      setMetrics({
+        leftLungOfPatientArea: updatedMetrics.area_left_lung,
+        rightLungOfPatientArea: updatedMetrics.area_right_lung,
+        symmetryIndex: (1 - abs(updatedMetrics.asymmetry_score)) * 100,
+        criticalAssymetric: updatedMetrics.is_asymmetry_critical,
+      });
+
+      await refetchMaskAndOverlay(currentAnalysisId);
+    } catch (error) {
+      console.error("Erreur lors de la correction du masque:", error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const refetchMaskAndOverlay = async (analysisId: string) => {
+    const response_mask = await handleFetch(`${BACKEND_URL}/analysis/${analysisId}/mask`, null, "GET");
+    if (response_mask && response_mask.ok) {
+      const maskBlob = await response_mask.blob();
+      setMaskData(URL.createObjectURL(maskBlob));
+    }
+
+    const response_overlay = await handleFetch(`${BACKEND_URL}/analysis/${analysisId}/overlay`, null, "GET");
+    if (response_overlay && response_overlay.ok) {
+      const overlayBlob = await response_overlay.blob();
+      setOverlayData(URL.createObjectURL(overlayBlob));
+    }
   };
 
   return (
@@ -350,6 +422,7 @@ export default function App() {
       </Dialog>
 
       <DicomViewport
+        ref={dicomViewportRef}
         dicomImageData={dicomImageData}
         canvasRef={canvasRef}
         imageData={imageData}
@@ -358,6 +431,9 @@ export default function App() {
         onSeedPlaced={setSeeds}
         message={message}
         overlayData={overlayData}
+        onMaskCorrected={handleMaskCorrected}
+        brushSize={brushSize[0]}
+        correctionTool={correctionTool}
       />
 
       <RightPanel
@@ -367,6 +443,11 @@ export default function App() {
         metrics={metrics}
         isProcessing={isProcessing}
         onOpenPatientInfo={() => setIsInfoDialogOpen(true)}
+        brushSize={brushSize}
+        onBrushSizeChange={setBrushSize}
+        correctionTool={correctionTool}
+        onCorrectionToolChange={setCorrectionTool}
+        onValidateCorrection={handleValidateCorrectionClick}
       />
     </div>
   );

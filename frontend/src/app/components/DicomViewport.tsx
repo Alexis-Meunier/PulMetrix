@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { RotateCw, ZoomIn, ZoomOut, Move, FlipHorizontal, Layers } from "lucide-react";
 import { Button } from "./ui/button";
 import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
 import { Seed } from "../App";
 
 type ViewMode = "raw" | "mask" | "overlay";
+type CorrectionTool = "brush" | "eraser";
 
 interface DicomViewportProps {
   canvasRef: React.RefObject<HTMLCanvasElement>;
@@ -15,9 +16,28 @@ interface DicomViewportProps {
   dicomImageData: ImageData | null;
   message?: string | null;
   overlayData: string | null;
+  onMaskCorrected?: (newMaskBlob: Blob) => void;
+  brushSize?: number;
+  correctionTool?: CorrectionTool;
 }
 
-export function DicomViewport({ dicomImageData, canvasRef, imageData, maskData, overlayData, mode, onSeedPlaced, message: propsMessage }: DicomViewportProps) {
+export interface DicomViewportRef {
+  validateCorrection: () => Promise<void>;
+}
+
+export const DicomViewport = forwardRef<DicomViewportRef, DicomViewportProps>(
+  ({ dicomImageData, 
+    canvasRef, 
+    imageData, 
+    maskData, 
+    overlayData, 
+    mode, 
+    onSeedPlaced, 
+    message: propsMessage, 
+    onMaskCorrected, 
+    brushSize = 10, 
+    correctionTool = "brush" }, 
+    ref) => {
   const [viewMode, setViewMode] = useState<ViewMode>("raw");
   const [rotation, setRotation] = useState(0);
   const [zoom, setZoom] = useState(1);
@@ -26,16 +46,86 @@ export function DicomViewport({ dicomImageData, canvasRef, imageData, maskData, 
   const [isPanning, setIsPanning] = useState(false);
   const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
   const [localMessage, setLocalMessage] = useState<string | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+
+  const drawCanvasRef = useRef<HTMLCanvasElement | null>(null); 
+  const overlayImgRef = useRef<HTMLImageElement | null>(null);
+  const maskImgRef = useRef<HTMLImageElement | null>(null);
 
   const message = propsMessage ?? localMessage;
 
-useEffect(() => {
-  setSeeds([]);
-}, [dicomImageData]);
+  useEffect(() => {
+    if (!overlayData) {
+      overlayImgRef.current = null;
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      overlayImgRef.current = img;
+      drawCanvas(); 
+    };
+    img.src = overlayData;
+  }, [overlayData]);
 
-useEffect(() => {
-    drawCanvas();
-}, [dicomImageData, maskData, overlayData, viewMode, rotation, zoom, pan, seeds]);
+  useEffect(() => {
+    if (!maskData) {
+      maskImgRef.current = null;
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      maskImgRef.current = img;
+      drawCanvas();
+    };
+    img.src = maskData;
+  }, [maskData]);
+
+  useEffect(() => {
+    setSeeds([]);
+  }, [dicomImageData]);
+
+  useEffect(() => {
+      if (!dicomImageData) return;
+      const drawCanvas = document.createElement("canvas");
+      drawCanvas.width = dicomImageData.width;
+      drawCanvas.height = dicomImageData.height;
+      drawCanvasRef.current = drawCanvas;
+    }, [dicomImageData]);
+
+  useEffect(() => {
+      drawCanvas();
+  }, [dicomImageData, maskData, overlayData, viewMode, rotation, zoom, pan, seeds]);
+
+  useImperativeHandle(ref, () => ({
+      validateCorrection: handleValidateCorrection,
+  }));
+
+  const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  };
+
+  const handleDrawStart = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (mode !== "correction") return;
+    setIsDrawing(true);
+    drawAt(e);
+  };
+
+  const handleDrawMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (mode !== "correction" || !isDrawing) return;
+    drawAt(e);
+  };
+
+  const handleDrawEnd = () => {
+    setIsDrawing(false);
+    drawCanvas(); 
+  };
 
   const drawCanvas = () => {
     const canvas = canvasRef.current;
@@ -52,27 +142,84 @@ useEffect(() => {
     }
 
     if (maskData && viewMode === "mask") {
-      const maskImg = new Image();
-      maskImg.onload = () => {
-        canvas.width = maskImg.width;
-        canvas.height = maskImg.height;
-        ctx.drawImage(maskImg, 0, 0, canvas.width, canvas.height);
-      };
-      maskImg.src = maskData;
+      const maskImg = maskImgRef.current;
+      if (!maskImg) return;
+      canvas.width = maskImg.width;
+      canvas.height = maskImg.height;
+      ctx.drawImage(maskImg, 0, 0, canvas.width, canvas.height);
+      drawCorrectionLayer(ctx);
     }
 
     if (overlayData && viewMode === "overlay") {
-      const overlayImg = new Image();
-      overlayImg.onload = () => {
+        const overlayImg = overlayImgRef.current;
+        if (!overlayImg) return;
         canvas.width = overlayImg.width;
         canvas.height = overlayImg.height;
         ctx.drawImage(overlayImg, 0, 0, canvas.width, canvas.height);
-      };
-      overlayImg.src = overlayData;
+        drawCorrectionLayer(ctx);
     }
 
     if (viewMode === "raw" && mode === "semi-manual") {
       drawSeeds(ctx);
+    }
+  };
+
+  const drawAt = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const draw_Canvas = drawCanvasRef.current;
+    if (!draw_Canvas) return;
+    const ctx = draw_Canvas.getContext("2d");
+    if (!ctx) return;
+
+    const { x, y } = getCanvasCoords(e);
+
+    ctx.globalCompositeOperation = correctionTool === "eraser" ? "destination-out" : "source-over";
+    ctx.fillStyle = "#0404f3";
+    ctx.beginPath();
+    ctx.arc(x, y, brushSize, 0, 2 * Math.PI);
+    ctx.fill();
+
+    drawCanvas();
+  };
+
+  const drawCorrectionLayer = (ctx: CanvasRenderingContext2D) => {
+    const drawCanvas = drawCanvasRef.current;
+    if (!drawCanvas || mode !== "correction") return;
+    ctx.globalAlpha = 0.6;
+    ctx.drawImage(drawCanvas, 0, 0);
+    ctx.globalAlpha = 1;
+  };
+
+  const validateCorrection = async (): Promise<Blob | null> => {
+    if (!maskData || !drawCanvasRef.current) return null;
+
+    const baseMaskImg = new Image();
+    await new Promise((resolve) => {
+      baseMaskImg.onload = resolve;
+      baseMaskImg.src = maskData;
+    });
+
+    const mergeCanvas = document.createElement("canvas");
+    mergeCanvas.width = baseMaskImg.width;
+    mergeCanvas.height = baseMaskImg.height;
+    const mergeCtx = mergeCanvas.getContext("2d")!;
+
+    mergeCtx.drawImage(baseMaskImg, 0, 0);
+    mergeCtx.drawImage(drawCanvasRef.current, 0, 0);
+
+    return new Promise((resolve) => {
+      mergeCanvas.toBlob((blob) => resolve(blob), "image/png");
+    });
+  };
+
+  const handleValidateCorrection = async () => {
+    const blob = await validateCorrection();
+    if (blob && onMaskCorrected) {
+      onMaskCorrected(blob);
+      const drawCanvas = drawCanvasRef.current;
+      if (drawCanvas) {
+        const ctx = drawCanvas.getContext("2d");
+        ctx?.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+      }
     }
   };
 
@@ -160,10 +307,10 @@ useEffect(() => {
           width={800}
           height={600}
           onClick={handleCanvasClick}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
+          onMouseDown={(e) => mode === "correction" ? handleDrawStart(e) : handleMouseDown(e)}
+          onMouseMove={(e) => mode === "correction" ? handleDrawMove(e) : handleMouseMove(e)}
+          onMouseUp={() => mode === "correction" ? handleDrawEnd() : handleMouseUp()}
+          onMouseLeave={() => mode === "correction" ? handleDrawEnd() : handleMouseUp()}
           className="border border-border/30 rounded-lg cursor-crosshair"
           style={{  maxWidth: "100%", 
                     maxHeight: "100%",
@@ -182,4 +329,4 @@ useEffect(() => {
       )}
     </div>
   );
-}
+});

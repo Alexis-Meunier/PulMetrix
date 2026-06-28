@@ -46,7 +46,14 @@ def recompute_metrics(id: uuid.UUID, image: bytes) -> MetricsEntity:
             base_path: Path = Path(repo_analysis.path)
             save_mask_as_image(base_path / "mask.png", new_mask)
             save_overlay_as_image(base_path / "overlay.png", img, new_mask)
-            return compute_lung_metrics(img, new_mask)
+            metrics: MetricsEntity = compute_lung_metrics(img, new_mask)
+            repo.update_analysis_metrics(
+                id,
+                metrics.area_left_lung,
+                metrics.area_right_lung,
+                metrics.asymmetry_score,
+            )
+            return metrics
         except NoResultFound:
             return MetricsEntity(-1, -1, -1, True)
         except Exception:

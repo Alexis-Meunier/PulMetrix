@@ -229,7 +229,7 @@ export function RightPanel({
                   className="flex-1 h-4"
                   indicatorClassName={metrics.criticalAssymetric ? "bg-red-500" : "bg-[#10F4B1]"}
                   style={{
-                    background: metrics.symmetryIndex > 90 && !metrics.criticalAssymetric
+                    background: !metrics.criticalAssymetric
                       ? "rgba(16, 244, 177, 0.2)"
                       : "rgba(245, 158, 11, 0.2)"
                   }}
@@ -243,14 +243,14 @@ export function RightPanel({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <p className="text-xs text-muted-foreground cursor-help underline-offset-2 hover:underline">
-                      {metrics.symmetryIndex > 90 && !metrics.criticalAssymetric
+                      {!metrics.criticalAssymetric
                         ? "✓ Symétrie normale"
                         : "⚠ Asymétrie détectée"}
                     </p>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="text-sm max-w-xs">
-                      {metrics.symmetryIndex > 90 && !metrics.criticalAssymetric
+                      {!metrics.criticalAssymetric
                         ? "Les deux poumons ont une taille similaire, ce qui indique une morphologie normale."
                         : "Une différence significative de taille entre les deux poumons a été détectée. De plus, si l'indice de symétrie est élevé, cela peut indiquer une surface plus importante du poumon gauche que du poumon droit."}
                     </p>

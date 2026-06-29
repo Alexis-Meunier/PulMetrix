@@ -32,7 +32,7 @@ This panel is dedicated to file management. It allows you to import a new DICOM 
 
 ![](img/right_menu_seg.png "Right Menu segmentation")
 
-This menu is used to launch the segmentation process on the selected image. You can choose between automatic mode, semi-manual mode (which requires placing seeds on both lungs), and a correction mode to manually draw or adjust the mask.
+This menu is used to launch the segmentation process on the selected image. You can choose between automatic mode, semi-manual mode (which requires placing seeds on both lungs), and a correction mode to manually draw on the mask.
 
 ### Metrics Menu
 
